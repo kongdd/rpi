@@ -18,7 +18,7 @@ test_that("a streamed answer is echoed and returned", {
   skip_if_no_pi()
   out <- capture.output(
     text <- chat_pi(client = pi_client(bin = Sys.which("pi"), dir = tempdir(),
-                                       thinking = "off", session = FALSE))$stream(
+                                       thinking = "off", session = FALSE))$chat(
       "Reply with exactly: stream ok"
     )
   )
@@ -35,6 +35,26 @@ test_that("chat_async() resolves to the answer", {
                  function(x) value <<- x)
   while (is.null(value)) later::run_now(0.1)
   expect_match(value, "async ok", ignore.case = TRUE)
+})
+
+test_that("chat_structured() returns parsed JSON", {
+  skip_if_no_pi()
+  chat <- chat_pi(client = pi_client(bin = Sys.which("pi"), dir = tempdir(),
+                                     thinking = "off", tools = "",
+                                     session = FALSE))
+  out <- chat$chat_structured(
+    "Country and capital of France.",
+    type = list(
+      type = "object",
+      properties = list(
+        country = list(type = "string"),
+        capital = list(type = "string")
+      ),
+      required = I(list("country", "capital"))
+    )
+  )
+  expect_match(out$country, "france", ignore.case = TRUE)
+  expect_match(out$capital, "paris", ignore.case = TRUE)
 })
 
 test_that("model errors surface as R errors", {

@@ -20,9 +20,8 @@ An R6 class that drives a single \code{pi} conversation. Create it with
   \itemize{
     \item \href{#method-PiChat-initialize}{\code{PiChat$new()}}
     \item \href{#method-PiChat-chat}{\code{PiChat$chat()}}
-    \item \href{#method-PiChat-stream}{\code{PiChat$stream()}}
     \item \href{#method-PiChat-chat_async}{\code{PiChat$chat_async()}}
-    \item \href{#method-PiChat-stream_async}{\code{PiChat$stream_async()}}
+    \item \href{#method-PiChat-chat_structured}{\code{PiChat$chat_structured()}}
     \item \href{#method-PiChat-get_events}{\code{PiChat$get_events()}}
     \item \href{#method-PiChat-get_turns}{\code{PiChat$get_turns()}}
     \item \href{#method-PiChat-get_tokens}{\code{PiChat$get_tokens()}}
@@ -69,12 +68,12 @@ An R6 class that drives a single \code{pi} conversation. Create it with
 \if{html}{\out{<a id="method-PiChat-chat"></a>}}
 \if{latex}{\out{\hypertarget{method-PiChat-chat}{}}}
 \subsection{\code{PiChat$chat()}}{
-  Send a prompt and return the answer as a string, after the
-run has finished. \code{pi} may call tools in between; only the final
-assistant text is returned.
+  Send a prompt, echo the answer as it is produced, and
+return it once the run has finished. \code{pi} may call tools in between;
+only the final assistant text is returned.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{PiChat$chat(..., echo = NULL)}
+    \preformatted{PiChat$chat(..., echo = NULL, on_event = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
@@ -82,29 +81,7 @@ assistant text is returned.
     \describe{
       \item{\code{...}}{Prompt parts, collapsed with newlines.}
       \item{\code{echo}}{Echo mode for this call, see \code{\link[=chat_pi]{chat_pi()}}.}
-    }
-    \if{html}{\out{</div>}}
-  }
-}
-
-\if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PiChat-stream"></a>}}
-\if{latex}{\out{\hypertarget{method-PiChat-stream}{}}}
-\subsection{\code{PiChat$stream()}}{
-  Send a prompt and echo the answer while it is produced.
-Unlike the generator returned by \code{ellmer::Chat$stream()}, this blocks
-and returns the complete answer.
-  \subsection{Usage}{
-    \if{html}{\out{<div class="r">}}
-    \preformatted{PiChat$stream(..., on_event = NULL, echo = NULL)}
-    \if{html}{\out{</div>}}
-  }
-  \subsection{Arguments}{
-    \if{html}{\out{<div class="arguments">}}
-    \describe{
-      \item{\code{...}}{Prompt parts, collapsed with newlines.}
       \item{\code{on_event}}{Optional function called with every raw \code{pi} event.}
-      \item{\code{echo}}{Echo mode for this call, see \code{\link[=chat_pi]{chat_pi()}}.}
     }
     \if{html}{\out{</div>}}
   }
@@ -118,37 +95,45 @@ and returns the complete answer.
 answer.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{PiChat$chat_async(...)}
+    \preformatted{PiChat$chat_async(..., echo = NULL, on_event = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{...}}{Prompt parts, collapsed with newlines.}
+      \item{\code{echo}}{Echo mode for this call, see \code{\link[=chat_pi]{chat_pi()}}.}
+      \item{\code{on_event}}{Optional function called with every raw \code{pi} event.}
     }
     \if{html}{\out{</div>}}
   }
 }
 
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-PiChat-stream_async"></a>}}
-\if{latex}{\out{\hypertarget{method-PiChat-stream_async}{}}}
-\subsection{\code{PiChat$stream_async()}}{
-  Like \verb{$stream()}, but returns a promise that resolves to the
-answer once the run has finished.
+\if{html}{\out{<a id="method-PiChat-chat_structured"></a>}}
+\if{latex}{\out{\hypertarget{method-PiChat-chat_structured}{}}}
+\subsection{\code{PiChat$chat_structured()}}{
+  Ask for structured data. The prompt is answered with a
+single JSON value, which is parsed back into R: arrays of objects
+become data frames, arrays of scalars become vectors, missing
+optional fields become \code{NA}.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
-    \preformatted{PiChat$stream_async(..., on_event = NULL, echo = NULL)}
+    \preformatted{PiChat$chat_structured(..., type, echo = NULL)}
     \if{html}{\out{</div>}}
   }
   \subsection{Arguments}{
     \if{html}{\out{<div class="arguments">}}
     \describe{
       \item{\code{...}}{Prompt parts, collapsed with newlines.}
-      \item{\code{on_event}}{Optional function called with every raw \code{pi} event.}
+      \item{\code{type}}{A JSON Schema written as a plain list, or a \verb{type_*()}
+object from \pkg{ellmer}.}
       \item{\code{echo}}{Echo mode for this call, see \code{\link[=chat_pi]{chat_pi()}}.}
     }
     \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    The parsed answer.
   }
 }
 
@@ -170,7 +155,10 @@ of the \code{pi} event stream.
 \if{latex}{\out{\hypertarget{method-PiChat-get_turns}{}}}
 \subsection{\code{PiChat$get_turns()}}{
   The messages of the conversation as a data table with one
-row per message, including token usage and cost.
+row per message, including token usage and cost. \code{input} is the whole
+prompt of that turn -- system prompt, tool descriptions, \code{AGENTS.md},
+history and the user text -- because \code{pi} reports it as one number;
+\code{cache_read} is the part served from the provider cache.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{PiChat$get_turns()}
@@ -183,7 +171,10 @@ row per message, including token usage and cost.
 \if{latex}{\out{\hypertarget{method-PiChat-get_tokens}{}}}
 \subsection{\code{PiChat$get_tokens()}}{
   Token usage of every assistant turn, in the shape used by
-\pkg{ellmer}: \code{input}, \code{output}, \code{cached_input} and \code{cost}.
+\pkg{ellmer}: \code{input}, \code{output}, \code{cached_input} and \code{cost}. \code{input}
+covers the full prompt, the system prompt included; use
+\verb{$get_turns()} to see \code{output}, \code{reasoning}, \code{cache_write} and
+\code{total} as well.
   \subsection{Usage}{
     \if{html}{\out{<div class="r">}}
     \preformatted{PiChat$get_tokens()}

@@ -39,8 +39,8 @@ chat$get_cost()      # 累计费用（美元）
 ## 流式与异步
 
 ```r
-chat$stream("总结 DESCRIPTION")               # 边生成边打印
-chat$stream("总结 DESCRIPTION", echo = "all") # 同时打印思考与工具调用
+chat$chat("总结 DESCRIPTION")               # 边生成边打印
+chat$chat("总结 DESCRIPTION", echo = "all") # 同时打印思考与工具调用
 
 promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 ```
@@ -81,8 +81,8 @@ chat$get_tokens()             # input / output / cached_input / cost
 | ----------------- | ------------------ |
 | `chat_openai()`   | `chat_pi()`        |
 | `Provider`        | `pi_client()`      |
-| `$chat()`         | `$chat()`          |
-| `$stream()`       | `$stream()`（阻塞，返回完整回答） |
+| `$chat()`         | `$chat()`（阻塞，同时流式打印） |
+| `$stream()`       | —（`$chat()` 已流式） |
 | `$chat_async()`   | `$chat_async()`    |
 | `$get_turns()`    | `$get_turns()`（data.table） |
 | `$get_tokens()`   | `$get_tokens()`    |

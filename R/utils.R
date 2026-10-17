@@ -50,7 +50,7 @@ pi_elapsed <- function(start) {
 #' @noRd
 pi_echo <- function(echo) {
   if (is.null(echo)) {
-    echo <- getOption("piagent.echo", if (interactive()) "text" else "none")
+    echo <- getOption("piagent.echo", "text")
   }
   echo <- match.arg(echo, c("none", "text", "all"))
   if (length(echo) == 0) echo <- "none"
@@ -182,19 +182,46 @@ pi_turns <- function(events) {
       output = as.numeric(usage$output %||% NA),
       cache_read = as.numeric(usage$cacheRead %||% NA),
       cache_write = as.numeric(usage$cacheWrite %||% NA),
+      reasoning = as.numeric(usage$reasoning %||% NA),
+      total = as.numeric(usage$totalTokens %||% NA),
       cost = as.numeric(usage$cost$total %||% NA),
       duration = as.numeric(msg$durationMs %||% NA)
     )
   }
   if (length(rows) == 0) {
-    return(data.table::data.table(
+    out <- data.table::data.table(
       role = character(), text = character(), thinking = character(),
       model = character(), input = numeric(), output = numeric(),
-      cache_read = numeric(), cache_write = numeric(), cost = numeric(),
+      cache_read = numeric(), cache_write = numeric(), reasoning = numeric(),
+      total = numeric(), cost = numeric(),
       duration = numeric()
-    ))
+    )
+  } else {
+    out <- data.table::rbindlist(rows)
   }
-  data.table::rbindlist(rows)
+  out
+}
+
+#' Split a prompt into command line arguments
+#'
+#' A `@file` reference must be its own `pi` argument: `pi` attaches everything
+#' after `@` up to the end of the argument. Whitespace-delimited tokens that
+#' start with `@` therefore leave the prompt text, and the remaining text is
+#' joined back with single spaces.
+#' @noRd
+pi_prompt_args <- function(prompt) {
+  tokens <- strsplit(prompt, "[[:space:]]+")[[1]]
+  if (!any(startsWith(tokens, "@"))) return(prompt)
+  out <- character(); txt <- ""
+  for (tok in tokens) {
+    if (startsWith(tok, "@")) {
+      if (nzchar(txt)) { out <- c(out, txt); txt <- "" }
+      out <- c(out, tok)
+    } else {
+      txt <- if (nzchar(txt)) paste(txt, tok, sep = " ") else tok
+    }
+  }
+  c(out, if (nzchar(txt)) txt)
 }
 
 #' Start a `pi` process in JSON mode
@@ -205,7 +232,7 @@ pi_turns <- function(events) {
 #' @noRd
 pi_start <- function(client, args, prompt) {
   p <- processx::process$new(
-    client$bin, c(args, "--", prompt),
+    client$bin, c(args, "--", pi_prompt_args(prompt)),
     stdin = "|", stdout = "|", stderr = "|",
     wd = client$dir, env = client$env
   )

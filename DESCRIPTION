@@ -18,6 +18,7 @@ Imports:
     promises,
     R6
 Suggests:
+    ellmer,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)

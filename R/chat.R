@@ -11,9 +11,9 @@
 #'   `append_system_prompt` of the client. The built-in prompt cannot be
 #'   replaced from a chat; use `pi_client(system_prompt = )` for that.
 #' @param client A [pi_client()] describing how to start `pi`.
-#' @param echo One of `"none"`, `"text"` or `"all"`. `"none"` prints nothing
-#'   (the default outside an interactive session), `"text"` streams the
-#'   assistant answer, `"all"` also streams reasoning and tool calls.
+#' @param echo One of `"none"`, `"text"` or `"all"`. `"text"` (the default)
+#'   streams the assistant answer as it is produced, `"all"` also streams
+#'   reasoning and tool calls, `"none"` prints nothing.
 #' @param session_id Session id to use. Defaults to a fresh id, so every
 #'   `PiChat` starts a new `pi` session. Ignored when the client has
 #'   `session = FALSE`.
@@ -28,7 +28,7 @@
 #'
 #' # a fresh, tool-less, stateless question
 #' chat <- chat_pi(client = pi_client(tools = "read,grep,find,ls", session = FALSE))
-#' chat$stream("Summarise DESCRIPTION")
+#' chat$chat("Summarise DESCRIPTION")
 #'
 #' chat$get_tokens()
 #' chat$get_cost()
@@ -73,52 +73,52 @@ PiChat <- R6Class(
       private$session_id <- if (client$session) session_id %||% pi_session_id()
     },
 
-    #' @description Send a prompt and return the answer as a string, after the
-    #'   run has finished. `pi` may call tools in between; only the final
-    #'   assistant text is returned.
+    #' @description Send a prompt, echo the answer as it is produced, and
+    #'   return it once the run has finished. `pi` may call tools in between;
+    #'   only the final assistant text is returned.
     #' @param ... Prompt parts, collapsed with newlines.
     #' @param echo Echo mode for this call, see [chat_pi()].
-    chat = function(..., echo = NULL) {
+    #' @param on_event Optional function called with every raw `pi` event.
+    chat = function(..., echo = NULL, on_event = NULL) {
       prompt <- pi_prompt(...)
       echo <- pi_echo(echo %||% private$echo)
-      events <- private$submit(prompt, echo)
+      events <- private$submit(prompt, echo, on_event = on_event)
       text <- pi_text(events)
       if (identical(echo, "none")) text else invisible(text)
-    },
-
-    #' @description Send a prompt and echo the answer while it is produced.
-    #'   Unlike the generator returned by `ellmer::Chat$stream()`, this blocks
-    #'   and returns the complete answer.
-    #' @param ... Prompt parts, collapsed with newlines.
-    #' @param on_event Optional function called with every raw `pi` event.
-    #' @param echo Echo mode for this call, see [chat_pi()].
-    stream = function(..., on_event = NULL, echo = NULL) {
-      prompt <- pi_prompt(...)
-      echo <- pi_echo(echo %||% "text")
-      events <- private$submit(prompt, echo, on_event = on_event)
-      invisible(pi_text(events))
     },
 
     #' @description Like `$chat()`, but returns a promise that resolves to the
     #'   answer.
     #' @param ... Prompt parts, collapsed with newlines.
-    chat_async = function(...) {
-      prompt <- pi_prompt(...)
-      promises::then(private$submit(prompt, "none", async = TRUE), pi_text)
-    },
-
-    #' @description Like `$stream()`, but returns a promise that resolves to the
-    #'   answer once the run has finished.
-    #' @param ... Prompt parts, collapsed with newlines.
-    #' @param on_event Optional function called with every raw `pi` event.
     #' @param echo Echo mode for this call, see [chat_pi()].
-    stream_async = function(..., on_event = NULL, echo = NULL) {
+    #' @param on_event Optional function called with every raw `pi` event.
+    chat_async = function(..., echo = NULL, on_event = NULL) {
       prompt <- pi_prompt(...)
-      echo <- pi_echo(echo %||% "text")
+      echo <- pi_echo(echo %||% private$echo)
       promises::then(
         private$submit(prompt, echo, on_event = on_event, async = TRUE),
         pi_text
       )
+    },
+
+    #' @description Ask for structured data. The prompt is answered with a
+    #'   single JSON value, which is parsed back into R: arrays of objects
+    #'   become data frames, arrays of scalars become vectors, missing
+    #'   optional fields become `NA`.
+    #' @param ... Prompt parts, collapsed with newlines.
+    #' @param type A JSON Schema written as a plain list, or a `type_*()`
+    #'   object from \pkg{ellmer}.
+    #' @param echo Echo mode for this call, see [chat_pi()].
+    #' @return The parsed answer.
+    chat_structured = function(..., type, echo = NULL) {
+      prompt <- pi_prompt(...)
+      echo <- pi_echo(echo %||% private$echo)
+      rule <- paste0(
+        "Answer with a single JSON value and nothing else: no prose, no ",
+        "code fences. The value must validate against this JSON Schema:\n",
+        jsonlite::toJSON(pi_schema(type), auto_unbox = TRUE)
+      )
+      pi_json_parse(pi_text(private$submit(prompt, echo, extra = rule)))
     },
 
     #' @description All raw events received so far, one list per JSONL record
@@ -128,13 +128,19 @@ PiChat <- R6Class(
     },
 
     #' @description The messages of the conversation as a data table with one
-    #'   row per message, including token usage and cost.
+    #'   row per message, including token usage and cost. `input` is the whole
+    #'   prompt of that turn -- system prompt, tool descriptions, `AGENTS.md`,
+    #'   history and the user text -- because `pi` reports it as one number;
+    #'   `cache_read` is the part served from the provider cache.
     get_turns = function() {
       pi_turns(private$events)
     },
 
     #' @description Token usage of every assistant turn, in the shape used by
-    #'   \pkg{ellmer}: `input`, `output`, `cached_input` and `cost`.
+    #'   \pkg{ellmer}: `input`, `output`, `cached_input` and `cost`. `input`
+    #'   covers the full prompt, the system prompt included; use
+    #'   `$get_turns()` to see `output`, `reasoning`, `cache_write` and
+    #'   `total` as well.
     get_tokens = function() {
       turns <- self$get_turns()
       keep <- turns$role == "assistant"
@@ -214,17 +220,18 @@ PiChat <- R6Class(
     echo = NULL,
     events = list(),
 
-    args = function() {
+    args = function(extra = character()) {
       pi_cli_args(
         self$client,
         session_id = private$session_id,
         model = private$model,
-        append = c(private$system_prompt, self$client$append_system_prompt)
+        append = c(private$system_prompt, self$client$append_system_prompt, extra)
       )
     },
 
-    submit = function(prompt, echo = "none", on_event = NULL, async = FALSE) {
-      args <- private$args()
+    submit = function(prompt, echo = "none", on_event = NULL, async = FALSE,
+                      extra = character()) {
+      args <- private$args(extra)
       cb <- private$display(echo, on_event)
       timeout <- if (is.finite(self$client$timeout)) self$client$timeout
 
@@ -248,11 +255,7 @@ PiChat <- R6Class(
       show <- function(ev) {
         if (identical(ev$type, "message_update")) {
           ame <- ev$assistantMessageEvent
-          if (identical(ame$type, "text_delta")) {
-            cat(ame$delta, sep = "")
-          } else if (identical(echo, "all") && identical(ame$type, "thinking_delta")) {
-            cat(ame$delta, sep = "")
-          }
+          cat(pi_display(ame$type, ame$delta, echo), sep = "")
         } else if (identical(echo, "all") && identical(ev$type, "tool_execution_start")) {
           cat("\n[tool] ", ev$toolName, ": ", pi_short(ev$args), "\n", sep = "")
         }
@@ -270,6 +273,22 @@ pi_prompt <- function(...) {
   prompt <- paste(vapply(parts, as.character, character(1)), collapse = "\n")
   pi_check_prompt(prompt)
   prompt
+}
+
+#' Echo one delta of the assistant stream
+#'
+#' In `text` mode only the answer is printed; in `all` mode answer and debate
+#' blocks are separated by small markers.
+#' @noRd
+pi_display <- function(type, delta, echo) {
+  if (identical(echo, "text")) return(if (identical(type, "text_delta")) delta else "")
+  switch(type,
+    thinking_start = "\n-- thinking --\n",
+    thinking_delta = delta,
+    text_start = "\n-- answer --\n",
+    text_delta = delta,
+    ""
+  )
 }
 
 pi_short <- function(x, n = 200) {

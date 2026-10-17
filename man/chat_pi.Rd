@@ -19,9 +19,9 @@ replaced from a chat; use \code{pi_client(system_prompt = )} for that.}
 
 \item{client}{A \code{\link[=pi_client]{pi_client()}} describing how to start \code{pi}.}
 
-\item{echo}{One of \code{"none"}, \code{"text"} or \code{"all"}. \code{"none"} prints nothing
-(the default outside an interactive session), \code{"text"} streams the
-assistant answer, \code{"all"} also streams reasoning and tool calls.}
+\item{echo}{One of \code{"none"}, \code{"text"} or \code{"all"}. \code{"text"} (the default)
+streams the assistant answer as it is produced, \code{"all"} also streams
+reasoning and tool calls, \code{"none"} prints nothing.}
 
 \item{session_id}{Session id to use. Defaults to a fresh id, so every
 \code{PiChat} starts a new \code{pi} session. Ignored when the client has
@@ -44,7 +44,7 @@ chat$chat("List the R packages used in this project")
 
 # a fresh, tool-less, stateless question
 chat <- chat_pi(client = pi_client(tools = "read,grep,find,ls", session = FALSE))
-chat$stream("Summarise DESCRIPTION")
+chat$chat("Summarise DESCRIPTION")
 
 chat$get_tokens()
 chat$get_cost()

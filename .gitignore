@@ -13,3 +13,6 @@ inst/doc
 # stray scratch files, not part of the package
 /pkgs/
 /hello.R
+undefined
+
+*Rcheck*

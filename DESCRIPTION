@@ -1,0 +1,24 @@
+Package: piagent
+Title: Chat with the 'Pi' Coding Agent from R
+Version: 0.1.0
+Authors@R:
+    person("Dongdong", "Kong", role = c("aut", "cre"), email = "kongdd.sysu@gmail.com")
+Description: An 'ellmer'-style interface to the 'pi' coding agent command line
+    tool. Each conversation is backed by a 'pi' session, so the assistant can
+    read files, run shell commands, and edit code inside a working directory.
+    Provides blocking, streaming, and asynchronous access to the agent, and
+    token and cost accounting parsed from the 'pi' JSON event stream.
+License: GPL-3
+Encoding: UTF-8
+Imports:
+    data.table,
+    jsonlite,
+    later,
+    processx,
+    promises,
+    R6
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0

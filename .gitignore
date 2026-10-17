@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+
+/*.tar.gz
+src/*.o
+src/*.so
+src/*.dll
+
+*.html
+inst/doc

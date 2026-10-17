@@ -1,6 +1,9 @@
 ^piagent\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^AGENTS\.md$
 ^\.gitignore$
 ^README\.md$
 ^\.github$
+^pkgs$
+^hello\.R$

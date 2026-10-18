@@ -230,9 +230,10 @@ pi_prompt_args <- function(prompt) {
 #' resolved by `pi`; stdin is an empty, closed pipe so that `pi` never waits
 #' for terminal input.
 #' @noRd
-pi_start <- function(client, args, prompt) {
+pi_start <- function(client, args, prompt, files = character()) {
+  file_args <- if (length(files)) paste0("@", files)
   p <- processx::process$new(
-    client$bin, c(args, "--", pi_prompt_args(prompt)),
+    client$bin, c(args, "--", pi_prompt_args(prompt), file_args),
     stdin = "|", stdout = "|", stderr = "|",
     wd = client$dir, env = client$env
   )

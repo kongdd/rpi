@@ -1,46 +1,37 @@
-#' Chat with `pi` through the ellmer interface
+#' Chat with pi through the ellmer interface
 #'
-#' `ChatPi` is an `ellmer::Chat` whose requests are answered by a `pi`
-#' subprocess instead of an HTTP API. Models that `pi` reaches with a
-#' subscription login, and therefore without an API key, thus work with the
-#' ellmer interface: `$chat()`, `$stream()`, `$chat_async()`,
-#' `$stream_async()`, `$get_turns()`, `$get_tokens()` and `$get_cost()`.
+#' `ChatPi` inherits from [ellmer::Chat], but runs pi instead of calling an
+#' HTTP API. Authentication, tools and extensions are managed by pi.
 #'
-#' The conversation lives in a `pi` session: each call sends only the new user
-#' text, while history, tools and extensions stay on the `pi` side. Two
-#' consequences: `$set_turns()` changes what R reports but not what the model
-#' sees, and `$register_tool()` cannot reach `pi` -- select tools with
-#' [pi_client()] or a `pi` extension. Structured output is not supported; use
-#' [chat_pi()] and `$chat_structured()` for that.
+#' History is read from the active branch of the pi session, including tool
+#' requests and results. `$set_turns()` forks a new session containing the
+#' supplied history; the original file is never overwritten. Compaction and
+#' extension metadata remain available through `$get_events()`.
 #'
-#' @param client A [pi_client()]: binary, working directory, tools, timeout and
-#'   extra `pi` arguments.
-#' @param model Model name or pattern passed to `pi --model`; `NULL` keeps the
-#'   `pi` default.
-#' @param system_prompt Appended to the built-in system prompt of `pi`.
-#' @param session_id Session id, so that several chat objects share one `pi`
-#'   session. A fresh id is used by default.
-#' @param echo Echo mode of `ellmer::Chat`: `"none"`, `"output"` or `"all"`.
-#' @return A `ChatPi` object, usable wherever an `ellmer::Chat` is expected.
-#' @seealso [chat_pi()]
+#' Structured output uses prompt instructions, not provider-enforced schemas.
+#' Inline and remote images are supported. Other attachments should be passed
+#' as `@file` references for pi tools to read. R tool registration is unsupported.
+#' With `client$session = FALSE`, temporary session files are used only within
+#' this R object and removed by `$close()` (or garbage collection).
+#'
+#' @param client A [pi_client()].
+#' @param model Model pattern; `NULL` uses the client or pi default.
+#' @param system_prompt Instructions appended to pi's built-in prompt.
+#' @param session_id A pi session ID to resume, or `NULL` for a new session.
+#' @param echo `"none"`, `"text"`, `"output"` or `"all"`; defaults to live text.
+#' @return A `ChatPi`, inheriting from `ellmer::Chat`.
 #' @export
 #' @examples
 #' \dontrun{
 #' chat <- chat_pi_ellmer()
 #' chat$chat("Summarise DESCRIPTION")
-#' chat$stream("Count the files in R/")
+#' chat$get_turns()
 #' chat$get_tokens()
 #' }
 chat_pi_ellmer <- function(client = pi_client(), model = NULL,
                            system_prompt = NULL, session_id = NULL,
-                           echo = "none") {
-  ChatPi$new(
-    client = client,
-    model = model,
-    system_prompt = system_prompt,
-    session_id = session_id,
-    echo = echo
-  )
+                           echo = "text") {
+  ChatPi$new(client, model, system_prompt, session_id, echo)
 }
 
 #' @noRd
@@ -50,267 +41,187 @@ ChatPi <- R6::R6Class(
   public = list(
     initialize = function(client = pi_client(), model = NULL,
                           system_prompt = NULL, session_id = NULL,
-                          echo = "none") {
+                          echo = "text") {
+      if (!inherits(client, "pi_client")) stop("`client` must be a pi_client().")
+      pi_check_string(session_id, "session_id")
+      if (any(grepl("^--(no-session|session|session-id|session-dir)(=|$)", client$args))) {
+        stop("Configure sessions with pi_client() and session_id, not client$args.", call. = FALSE)
+      }
       super$initialize(
-        provider = ellmer::Provider(
-          name = "pi",
-          base_url = "https://github.com/earendil-works/pi"
-        ),
-        model = ellmer::Model(
-          name = model %||% "",
-          params = list(),
-          extra_args = list()
-        ),
-        system_prompt = system_prompt,
-        echo = echo
+        provider = ellmer::Provider(name = "pi", base_url = ""),
+        model = ellmer::Model(name = model %||% client$model %||% ""),
+        system_prompt = system_prompt, echo = echo
       )
       private$client <- client
-      private$session_id <- if (client$session) session_id %||% pi_session_id()
+      private$echo_mode <- match.arg(echo, c("none", "text", "output", "all"))
+      private$store <- pi_history_store(client, session_id)
+      private$sync()
+    },
+
+    chat = function(..., echo = NULL) {
+      echo <- echo %||% private$echo_mode
+      coro::collect(private$run(pi_user_turn(...), echo = echo))
+      text <- self$last_turn()@text
+      if (echo == "none") text else invisible(text)
+    },
+
+    stream = function(..., type = NULL, stream = c("text", "content"),
+                      controller = NULL) {
+      stream <- match.arg(stream)
+      private$run(pi_user_turn(...), type = type,
+                  content = stream == "content", controller = controller)
+    },
+
+    chat_async = function(..., tool_mode = c("concurrent", "sequential")) {
+      match.arg(tool_mode)
+      done <- coro::async_collect(private$run(pi_user_turn(...), async = TRUE,
+                                             echo = private$echo_mode))
+      promises::then(done, function(x) self$last_turn()@text)
+    },
+
+    stream_async = function(..., type = NULL,
+                            tool_mode = c("concurrent", "sequential"),
+                            stream = c("text", "content"), controller = NULL) {
+      match.arg(tool_mode)
+      stream <- match.arg(stream)
+      private$run(pi_user_turn(...), type = type, async = TRUE,
+                  content = stream == "content", controller = controller)
+    },
+
+    chat_structured = function(..., type, echo = "none", convert = TRUE) {
+      coro::collect(private$run(pi_user_turn(...), type = type, echo = echo))
+      pi_extract(self$last_turn()@text, type, convert)
+    },
+
+    chat_structured_async = function(..., type, echo = "none", convert = TRUE) {
+      done <- coro::async_collect(private$run(pi_user_turn(...), type = type,
+                                             echo = echo, async = TRUE))
+      promises::then(done, function(x) pi_extract(self$last_turn()@text, type, convert))
+    },
+
+    set_turns = function(value) {
+      private$assert_idle()
+      old <- super$get_turns(TRUE)
+      prompt <- self$get_system_prompt()
+      super$set_turns(value)
+      ok <- FALSE
+      on.exit(if (!ok) {
+        super$set_system_prompt(prompt)
+        super$set_turns(old)
+      }, add = TRUE)
+      messages <- lapply(super$get_turns(), pi_turn_message)
+      path <- pi_history_fork(private$store, private$client$dir, messages)
+      private$store$path <- path
+      ok <- TRUE
+      invisible(self)
+    },
+
+    add_turn = function(user, assistant, log_tokens = TRUE) {
+      self$set_turns(c(self$get_turns(), list(user, assistant)))
+    },
+
+    get_tokens = function(include_system_prompt = FALSE) {
+      turns <- Filter(function(x) x@role == "assistant", self$get_turns())
+      if (!length(turns)) return(data.table::data.table(
+        input = numeric(), output = numeric(), cached_input = numeric(), cost = numeric()
+      ))
+      data.table::rbindlist(lapply(turns, function(x) data.table::data.table(
+        input = x@tokens[[1]], output = x@tokens[[2]],
+        cached_input = x@tokens[[3]], cost = x@cost
+      )))
+    },
+
+    get_events = function() pi_history_read(private$store$path),
+    get_session_id = function() pi_history_read(private$store$path)[[1]]$id,
+
+    register_tool = function(...) {
+      stop("Configure tools through pi_client() or pi extensions, not R functions.",
+           call. = FALSE)
+    },
+    register_tools = function(...) self$register_tool(...),
+
+    close = function() {
+      private$assert_idle()
+      if (!private$client$session) unlink(private$store$files)
+      private$closed <- TRUE
+      invisible(self)
     }
   ),
   private = list(
-    client = NULL,
-    session_id = NULL,
+    client = NULL, store = NULL, echo_mode = NULL, busy = FALSE, closed = FALSE,
 
-    args = function() {
-      pi_cli_args(
-        private$client,
-        session_id = private$session_id,
-        model = if (nzchar(private$model@name)) private$model@name,
-        append = self$get_system_prompt()
+    assert_idle = function() {
+      if (private$closed) stop("This chat has been closed.", call. = FALSE)
+      if (private$busy) stop("A pi request is already running.", call. = FALSE)
+    },
+
+    sync = function() {
+      messages <- pi_history_messages(private$store$path)
+      turns <- pi_message_turns(messages)
+      super$set_turns(turns)
+    },
+
+    run = function(user, type = NULL, echo = "none", content = FALSE,
+                   controller = NULL, async = FALSE) {
+      echo <- match.arg(echo, c("none", "text", "output", "all"))
+      if (!is.null(controller) && !inherits(controller, "ellmer_stream_controller")) {
+        stop("`controller` must be an ellmer::stream_controller().", call. = FALSE)
+      }
+      force(user)
+      if (!is.null(type) && !length(user@contents)) {
+        user <- ellmer::UserTurn("Extract the structured answer from the conversation above.")
+      }
+      force(content)
+      started <- FALSE
+      rule <- if (!is.null(type)) paste0(
+        "Return only one JSON value matching this JSON Schema: ",
+        jsonlite::toJSON(pi_schema(type), auto_unbox = TRUE)
       )
-    },
-
-    # ellmer streams via a generator: yield the deltas, then record the turn.
-    submit_turns = function(user_turn, stream, echo, type = NULL,
-                            yield_as_content = FALSE, controller = NULL,
-                            otel_span = NULL) {
-      private$check_type(type)
-      ctx <- private$context(stream, echo, yield_as_content, controller)
-      st <- pi_state()
-
-      coro::generator(function() {
-        p <- private$start(user_turn)
-        on.exit(if (p$is_alive()) p$kill(), add = TRUE)
-        while (pi_running(p)) {
-          p$poll_io(50)
-          for (line in p$read_output_lines()) {
-            value <- private$absorb(pi_absorb(line, st), ctx)
-            if (!is.null(value)) yield(value)
-          }
-          st$stderr <- c(st$stderr, p$read_error_lines())
-          private$check_deadline(p, st)
-          if (isTRUE(ctx$controller$cancelled)) {
-            p$kill()
-            break
-          }
+      # Construct the process inside the iterator: unused streams do no work.
+      start <- function() {
+        private$assert_idle()
+        private$sync()
+        private$busy <- TRUE
+        started <<- TRUE
+        cl <- private$client
+        st <- pi_stream_state(controller, echo, content, cl$timeout)
+        st$turns <- super$get_turns()
+        if (isTRUE(controller$cancelled)) {
+          st$cancelled <- TRUE
+          return(st)
         }
-        private$finish(p, st, user_turn, ctx)
-        coro::exhausted()
-      })()
-    },
-
-    submit_turns_async = function(user_turn, stream, echo, type = NULL,
-                                  yield_as_content = FALSE, controller = NULL,
-                                  otel_span = NULL) {
-      private$check_type(type)
-      ctx <- private$context(stream, echo, yield_as_content, controller)
-      st <- pi_state()
-
-      coro::async_generator(function() {
-        p <- private$start(user_turn)
-        on.exit(if (p$is_alive()) p$kill(), add = TRUE)
-        while (pi_running(p)) {
-          for (line in p$read_output_lines()) {
-            value <- private$absorb(pi_absorb(line, st), ctx)
-            if (!is.null(value)) yield(value)
-          }
-          st$stderr <- c(st$stderr, p$read_error_lines())
-          private$check_deadline(p, st)
-          if (isTRUE(ctx$controller$cancelled)) {
-            p$kill()
-            break
-          }
-          if (pi_running(p)) await(pi_sleep())
+        input <- pi_turn_input(user)
+        st$files <- input$files
+        ok <- FALSE
+        on.exit(if (!ok) unlink(input$files), add = TRUE)
+        cl$session <- FALSE
+        args <- pi_cli_args(cl, model = if (nzchar(self$get_model())) self$get_model(),
+                            append = c(self$get_system_prompt(), cl$append_system_prompt, rule))
+        args <- args[args != "--no-session"]
+        st$p <- pi_start(cl, c(args, "--session", private$store$path),
+                         input$text, files = input$files)
+        ok <- TRUE
+        st
+      }
+      cleanup <- function(st) {
+        if (!is.null(st)) {
+          if (!is.null(st$p) && st$p$is_alive()) st$p$kill_tree()
+          unlink(st$files)
         }
-        private$finish(p, st, user_turn, ctx)
-        coro::exhausted()
-      })()
-    },
-
-    start = function(user_turn) {
-      pi_start(private$client, private$args(), user_turn@text)
-    },
-
-    context = function(stream, echo, yield_as_content, controller) {
-      list(
-        stream = stream,
-        echo = echo,
-        content = isTRUE(yield_as_content),
-        controller = controller
-      )
-    },
-
-    # Echo one delta and return the value the generator should yield, if any.
-    absorb = function(ev, ctx) {
-      if (is.null(ev)) return(NULL)
-      if (identical(ev$type, "thinking") && !identical(ctx$echo, "all")) {
-        return(NULL)
+        if (started) private$busy <- FALSE
       }
-      if (!identical(ctx$echo, "none")) cat(ev$delta, sep = "")
-      if (!isTRUE(ctx$stream)) return(NULL)
-      if (!ctx$content) return(ev$delta)
-      if (identical(ev$type, "thinking")) {
-        ellmer::ContentThinking(ev$delta)
-      } else {
-        ellmer::ContentText(ev$delta)
-      }
-    },
-
-    check_deadline = function(p, st) {
-      timeout <- private$client$timeout
-      if (!is.finite(timeout)) return(invisible(NULL))
-      if (pi_elapsed(st$start) > timeout) {
-        p$kill()
-        stop(
-          "The `pi` run exceeded `timeout` (", timeout, " seconds).",
-          call. = FALSE
-        )
-      }
-    },
-
-    check_type = function(type) {
-      if (!is.null(type)) {
-        stop(
-          "`chat_structured()` is not supported by `chat_pi_ellmer()`; ",
-          "use `chat_pi()` and `$chat_structured()` instead.",
-          call. = FALSE
-        )
-      }
-    },
-
-    # A cancelled run keeps what it produced; a failed one raises.
-    finish = function(p, st, user_turn, ctx) {
-      if (!isTRUE(ctx$controller$cancelled)) {
-        stderr <- paste(st$stderr, collapse = "\n")
-        status <- p$get_exit_status()
-        if (!identical(status, 0L)) {
-          stop("`pi` exited with status ", status, ".\n", stderr, call. = FALSE)
+      finish <- function(st) {
+        pi_stream_stop(st)
+        pi_stream_check(st)
+        if (st$cancelled) {
+          partial <- ellmer::AssistantPartialTurn(contents = st$text)
+          super$set_turns(c(st$turns, list(user, partial)))
+        } else {
+          private$sync()
         }
-        pi_check_events(st$events, stderr)
+        if (echo != "none") cat("\n")
       }
-      if (!identical(ctx$echo, "none")) cat("\n")
-      self$add_turn(user_turn, private$assistant_turn(st))
-    },
-
-    assistant_turn = function(st) {
-      contents <- list()
-      if (nzchar(st$thinking)) {
-        contents <- c(contents, list(ellmer::ContentThinking(st$thinking)))
-      }
-      if (nzchar(st$text)) {
-        contents <- c(contents, list(ellmer::ContentText(st$text)))
-      }
-      ellmer::AssistantTurn(
-        contents = contents,
-        json = st$last %||% list(),
-        tokens = c(
-          input = st$input,
-          output = st$output,
-          cached_input = st$cache_read
-        ),
-        cost = st$cost,
-        duration = st$duration,
-        finish_reason = pi_finish_reason(st$last$stopReason)
-      )
+      pi_stream_iterator(start, cleanup, finish, async)
     }
   )
 )
-
-#' Wait a little inside an async generator
-#' @noRd
-pi_sleep <- function(seconds = 0.05) {
-  promises::promise(function(resolve, reject) {
-    later::later(function() resolve(NULL), seconds)
-  })
-}
-
-#' Is the `pi` process still producing output?
-#' @noRd
-pi_running <- function(p) {
-  p$is_alive() || p$is_incomplete_output() || p$is_incomplete_error()
-}
-
-#' Accumulator for one `pi` run
-#' @noRd
-pi_state <- function() {
-  st <- new.env(parent = emptyenv())
-  st$events <- list()
-  st$stderr <- character()
-  st$text <- ""
-  st$thinking <- ""
-  st$last <- NULL
-  st$input <- 0
-  st$output <- 0
-  st$cache_read <- 0
-  st$cost <- 0
-  st$duration <- 0
-  st$start <- Sys.time()
-  st
-}
-
-#' Absorb one JSONL line, returning the text delta to stream
-#'
-#' Deltas drive the live output; the authoritative text, thinking and usage
-#' come from `message_end`. Tool rounds inside one run are joined, and their
-#' usage is summed.
-#' @noRd
-pi_absorb <- function(line, st) {
-  ev <- pi_parse_event(line)
-  if (is.null(ev)) return(NULL)
-  st$events[[length(st$events) + 1]] <- ev
-
-  if (identical(ev$type, "message_update")) {
-    ame <- ev$assistantMessageEvent
-    return(switch(ame$type,
-      text_delta = list(type = "text", delta = ame$delta),
-      thinking_delta = list(type = "thinking", delta = ame$delta),
-      NULL
-    ))
-  }
-  if (!identical(ev$type, "message_end")) return(NULL)
-  msg <- ev$message
-  if (!identical(msg$role, "assistant")) return(NULL)
-
-  usage <- msg$usage %||% list()
-  st$last <- msg
-  st$text <- pi_join(st$text, pi_content_text(msg$content))
-  st$thinking <- pi_join(st$thinking, pi_content_text(msg$content, "thinking"))
-  st$input <- pi_add(st$input, usage$input)
-  st$output <- pi_add(st$output, usage$output)
-  st$cache_read <- pi_add(st$cache_read, usage$cacheRead)
-  st$cost <- pi_add(st$cost, usage$cost$total)
-  st$duration <- pi_add(st$duration, msg$durationMs)
-  NULL
-}
-
-#' Join two blocks of text, skipping empty ones
-#' @noRd
-pi_join <- function(a, b) {
-  if (is.null(b) || !nzchar(b)) return(a)
-  if (nzchar(a)) paste(a, b, sep = "\n\n") else b
-}
-
-pi_add <- function(a, b) if (is.null(b) || is.na(b)) a else a + b
-
-#' Standard ellmer finish reasons
-#' @noRd
-pi_finish_reason <- function(reason) {
-  switch(reason %||% "",
-    end_turn = "success",
-    stop = "success",
-    length = "max_tokens",
-    tool_use = "tool_use",
-    NA_character_
-  )
-}

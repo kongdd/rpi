@@ -47,9 +47,8 @@ promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 
 ## 作为 ellmer 的 Chat 使用
 
-订阅制模型（只有登录、没有 API key）常常拿不到 API，但 `pi` 能通过 OAuth 登录使用。
-`chat_pi_ellmer()` 把 `pi` 包装成 `ellmer::Chat`，于是 ellmer 的整套接口可以直接驱动
-`pi` 的模型与工具：
+对于 pi 支持的订阅/OAuth provider，登录 pi 后即可使用，无需另配 API key。
+`chat_pi_ellmer()` 继承 `ellmer::Chat`，常用对话接口直接驱动 pi 的模型、工具与扩展：
 
 ```r
 chat <- chat_pi_ellmer(model = "sonnet")   # 继承 ellmer::Chat
@@ -59,9 +58,39 @@ chat$stream("统计 R/ 目录的行数")           # coro generator，逐块 yie
 chat$chat_async("列出 R/ 里的函数")
 ```
 
-会话历史、工具与扩展都留在 `pi` 一侧：每次只发送本轮用户文本。因此
-`$set_turns()` 只改 R 侧的记录，`$register_tool()` 也无法回调 R 函数——工具请通过
-`pi_client(tools = )` 或 `pi` extension 配置。结构化输出请用 `chat_pi()$chat_structured()`。
+`$get_turns()` 从 pi 会话的当前分支读取消息，包含工具请求与结果；
+`$set_turns()` 会建立包含替换历史的新会话，下一次请求真实使用该历史，原文件不变。
+`$get_events()` 可查看原始会话记录（包括系统、扩展、压缩信息）。恢复已有会话用
+`session_id`，临时会话用 `pi_client(session = FALSE)`，结束后 `$close()` 清理临时文件。
+同一会话不要同时由多个进程写入。
+
+```r
+chat$chat_structured("提取包名", type = ellmer::type_string())
+chat$chat("描述图片", ellmer::content_image_file("plot.png", resize = "none"))
+```
+
+结构化输出通过提示词约束 JSON，并复用 ellmer 的类型转换，不是 provider 的强制 schema。
+图片可直接传入；PDF 等其他附件请交给 pi 的 `@file` 与工具处理。
+`$register_tool()` 明确报错：工具仍通过 `pi_client(tools = )` 或 pi extension 配置。
+
+## 仅复用 pi 授权，直接调用 ellmer
+
+`chat_pi_codex()` 读取 pi 的 Codex OAuth 授权，由 ellmer 直接发送 HTTP 请求，
+**不启动 pi，也不使用 pi 的工具或会话**，可以注册 R 工具：
+
+```r
+chat <- chat_pi_codex(model = "gpt-6-luna", system_prompt = "回答简短。")
+chat$chat("你好")
+chat$register_tool(ellmer::tool(
+  function(x, y) x + y, "两数相加",
+  arguments = list(x = ellmer::type_number(), y = ellmer::type_number()), name = "add"
+))
+```
+
+授权默认来自 `~/.pi/agent/auth.json`，也遵循 `PI_CODING_AGENT_DIR`。
+文件只读，每次请求重新读取；过期时需在 pi 中刷新或重新登录。
+仅支持 `openai-codex` OAuth；模型需在账号权限内，参数需符合 Codex 接口限制。
+不支持 OpenAI 的文件上传及批处理接口。
 
 ## 客户端配置
 

@@ -8,12 +8,13 @@ Description: An 'ellmer'-style interface to the 'pi' coding agent command line
     read files, run shell commands, and edit code inside a working directory.
     Provides blocking, streaming, and asynchronous access to the agent, and
     token and cost accounting parsed from the 'pi' JSON event stream.
+    Also supports direct 'ellmer' requests using saved 'Codex' OAuth credentials.
 License: GPL-3
 Encoding: UTF-8
 Imports:
     coro,
     data.table,
-    ellmer,
+    ellmer (>= 0.5.0),
     jsonlite,
     later,
     processx,

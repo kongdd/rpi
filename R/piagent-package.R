@@ -11,7 +11,7 @@
 #' ```
 #'
 #' @keywords internal
-#' @importFrom coro async_collect async_generator await collect exhausted generator loop
+#' @importFrom coro async_collect async_generator await collect exhausted generator loop yield
 #' @importFrom ellmer AssistantTurn Chat ContentText ContentThinking Model Provider
 #' @importFrom R6 R6Class
 "_PACKAGE"

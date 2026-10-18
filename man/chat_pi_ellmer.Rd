@@ -2,56 +2,51 @@
 % Please edit documentation in R/chat-ellmer.R
 \name{chat_pi_ellmer}
 \alias{chat_pi_ellmer}
-\title{Chat with \code{pi} through the ellmer interface}
+\title{Chat with pi through the ellmer interface}
 \usage{
 chat_pi_ellmer(
   client = pi_client(),
   model = NULL,
   system_prompt = NULL,
   session_id = NULL,
-  echo = "none"
+  echo = "text"
 )
 }
 \arguments{
-\item{client}{A \code{\link[=pi_client]{pi_client()}}: binary, working directory, tools, timeout and
-extra \code{pi} arguments.}
+\item{client}{A \code{\link[=pi_client]{pi_client()}}.}
 
-\item{model}{Model name or pattern passed to \code{pi --model}; \code{NULL} keeps the
-\code{pi} default.}
+\item{model}{Model pattern; \code{NULL} uses the client or pi default.}
 
-\item{system_prompt}{Appended to the built-in system prompt of \code{pi}.}
+\item{system_prompt}{Instructions appended to pi's built-in prompt.}
 
-\item{session_id}{Session id, so that several chat objects share one \code{pi}
-session. A fresh id is used by default.}
+\item{session_id}{A pi session ID to resume, or \code{NULL} for a new session.}
 
-\item{echo}{Echo mode of \code{ellmer::Chat}: \code{"none"}, \code{"output"} or \code{"all"}.}
+\item{echo}{\code{"none"}, \code{"text"}, \code{"output"} or \code{"all"}; defaults to live text.}
 }
 \value{
-A \code{ChatPi} object, usable wherever an \code{ellmer::Chat} is expected.
+A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
 }
 \description{
-\code{ChatPi} is an \code{ellmer::Chat} whose requests are answered by a \code{pi}
-subprocess instead of an HTTP API. Models that \code{pi} reaches with a
-subscription login, and therefore without an API key, thus work with the
-ellmer interface: \verb{$chat()}, \verb{$stream()}, \verb{$chat_async()},
-\verb{$stream_async()}, \verb{$get_turns()}, \verb{$get_tokens()} and \verb{$get_cost()}.
+\code{ChatPi} inherits from \link[ellmer:Chat]{ellmer::Chat}, but runs pi instead of calling an
+HTTP API. Authentication, tools and extensions are managed by pi.
 }
 \details{
-The conversation lives in a \code{pi} session: each call sends only the new user
-text, while history, tools and extensions stay on the \code{pi} side. Two
-consequences: \verb{$set_turns()} changes what R reports but not what the model
-sees, and \verb{$register_tool()} cannot reach \code{pi} -- select tools with
-\code{\link[=pi_client]{pi_client()}} or a \code{pi} extension. Structured output is not supported; use
-\code{\link[=chat_pi]{chat_pi()}} and \verb{$chat_structured()} for that.
+History is read from the active branch of the pi session, including tool
+requests and results. \verb{$set_turns()} forks a new session containing the
+supplied history; the original file is never overwritten. Compaction and
+extension metadata remain available through \verb{$get_events()}.
+
+Structured output uses prompt instructions, not provider-enforced schemas.
+Inline and remote images are supported. Other attachments should be passed
+as \verb{@file} references for pi tools to read. R tool registration is unsupported.
+With \code{client$session = FALSE}, temporary session files are used only within
+this R object and removed by \verb{$close()} (or garbage collection).
 }
 \examples{
 \dontrun{
 chat <- chat_pi_ellmer()
 chat$chat("Summarise DESCRIPTION")
-chat$stream("Count the files in R/")
+chat$get_turns()
 chat$get_tokens()
 }
-}
-\seealso{
-\code{\link[=chat_pi]{chat_pi()}}
 }

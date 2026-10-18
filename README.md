@@ -75,11 +75,11 @@ chat$chat("描述图片", ellmer::content_image_file("plot.png", resize = "none"
 
 ## 仅复用 pi 授权，直接调用 ellmer
 
-`chat_pi_codex()` 读取 pi 的 Codex OAuth 授权，由 ellmer 直接发送 HTTP 请求，
+`chat_codex()` 读取 pi 的 Codex OAuth 授权，由 ellmer 直接发送 HTTP 请求，
 **不启动 pi，也不使用 pi 的工具或会话**，可以注册 R 工具：
 
 ```r
-chat <- chat_pi_codex(model = "gpt-6-luna", system_prompt = "回答简短。")
+chat <- chat_codex(model = "gpt-6-luna", system_prompt = "回答简短。")
 chat$chat("你好")
 chat$register_tool(ellmer::tool(
   function(x, y) x + y, "两数相加",
@@ -126,7 +126,7 @@ chat$get_tokens()             # input / output / cached_input / cost
 
 | ellmer            | piagent            |
 | ----------------- | ------------------ |
-| `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_pi_codex()` |
+| `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_codex()` |
 | `Provider`        | `pi_client()`      |
 | `$chat()`         | `$chat()`（阻塞，同时流式打印） |
 | `$stream()`       | `$stream()`        |

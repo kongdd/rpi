@@ -34,7 +34,6 @@ chat_pi_ellmer <- function(client = pi_client(), model = NULL,
   ChatPi$new(client, model, system_prompt, session_id, echo)
 }
 
-#' @noRd
 #' Chat with pi through the ellmer interface
 #'
 #' `ChatPi` inherits from [ellmer::Chat], but runs pi instead of calling an

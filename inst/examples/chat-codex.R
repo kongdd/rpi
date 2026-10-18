@@ -3,7 +3,7 @@
 library(piagent)
 devtools::load_all(".")
 
-chat <- chat_pi_codex(
+chat <- chat_codex(
   model = "gpt-6-luna",
   system_prompt = "使用中文，回答简短。",
   echo = "output"

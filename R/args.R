@@ -64,7 +64,3 @@ pi_prompt_args <- function(prompt) {
   }
   c(out, if (nzchar(txt)) txt)
 }
-
-#' Start a `pi` process in JSON mode
-#'
-#' The prompt travels on the command line so that `@file` references are

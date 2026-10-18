@@ -24,7 +24,7 @@ test_that("Codex reuses OAuth headers without modifying authorization", {
   path <- codex_auth_fixture()
   on.exit(unlink(path))
   before <- readBin(path, "raw", file.info(path)$size)
-  chat <- chat_pi_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
+  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
   expect_s3_class(chat, "Chat")
   provider <- chat$get_provider()
   expect_equal(provider@base_url, "https://chatgpt.com/backend-api/codex")
@@ -88,7 +88,7 @@ test_that("silent and async chats force SSE while keeping ellmer history and usa
     },
     .package = "ellmer"
   )
-  chat <- chat_pi_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
+  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
   expect_equal(as.character(chat$chat("hello")), "OK")
   expect_equal(as.character(pi_sync(chat$chat_async("again"))), "OK")
   expect_equal(paste(unlist(coro::collect(chat$stream("stream"))), collapse = ""), "OK\n")
@@ -114,7 +114,7 @@ test_that("Codex answers through ellmer with real pi authorization", {
   skip_if_not(file.exists(pi_auth_file()), "no pi authorization file")
   model <- Sys.getenv("PI_MODEL")
   skip_if_not(nzchar(model), "set PI_MODEL to an authorized Codex model ID")
-  chat <- chat_pi_codex(model = model, system_prompt = "Answer briefly.")
+  chat <- chat_codex(model = model, system_prompt = "Answer briefly.")
   before <- readBin(pi_auth_file(), "raw", file.info(pi_auth_file())$size)
   called <- FALSE
   chat$register_tool(ellmer::tool(

@@ -3,7 +3,7 @@
 ## What this package is
 
 `piagent` is an **ellmer-style R interface to the `pi` coding agent CLI**. It normally runs each turn through a `pi` subprocess in a working directory and
-parses its JSON event stream. The exception is `chat_pi_codex()`: it reads pi's
+parses its JSON event stream. The exception is `chat_codex()`: it reads pi's
 saved Codex OAuth credentials and uses ellmer's HTTP transport directly.
 
 Public surface (keep it small):
@@ -16,7 +16,7 @@ Public surface (keep it small):
 | `$get_events()`, `$get_turns()`, `$get_tokens()`, `$get_cost()` | inspect the run | same |
 | `models_pi()` | `pi --list-models` as a data.table | `models_*()` |
 | `chat_pi_ellmer()` | `ChatPi`, an `ellmer::Chat` subclass that answers through `pi` (subscription models, no API key) | `chat_openai()` etc. |
-| `chat_pi_codex()` | direct Codex HTTP chat using pi's saved OAuth, with ellmer R tools | `chat_openai()` |
+| `chat_codex()` | direct Codex HTTP chat using pi's saved OAuth, with ellmer R tools | `chat_openai()` |
 
 Internal (not exported): `pi_cli_args()`, `pi_start()`, `pi_parse_event()`,
 `pi_check_events()`.

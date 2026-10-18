@@ -23,10 +23,10 @@
 #' @export
 #' @examples
 #' \dontrun{
-#' chat <- chat_pi_codex(model = "gpt-6-luna", system_prompt = "Be concise.")
+#' chat <- chat_codex(model = "gpt-6-luna", system_prompt = "Be concise.")
 #' chat$chat("What is 1 + 1?")
 #' }
-chat_pi_codex <- function(model, system_prompt = NULL, params = NULL,
+chat_codex <- function(model, system_prompt = NULL, params = NULL,
                           echo = c("none", "output", "all"),
                           auth_file = pi_auth_file()) {
   echo <- match.arg(echo)

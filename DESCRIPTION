@@ -11,14 +11,15 @@ Description: An 'ellmer'-style interface to the 'pi' coding agent command line
 License: GPL-3
 Encoding: UTF-8
 Imports:
+    coro,
     data.table,
+    ellmer,
     jsonlite,
     later,
     processx,
     promises,
     R6
 Suggests:
-    ellmer,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)

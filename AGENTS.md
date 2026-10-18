@@ -15,6 +15,7 @@ Public surface (keep it small):
 | `$chat()`, `$stream()`, `$chat_async()`, `$stream_async()` | send a prompt | same |
 | `$get_events()`, `$get_turns()`, `$get_tokens()`, `$get_cost()` | inspect the run | same |
 | `models_pi()` | `pi --list-models` as a data.table | `models_*()` |
+| `chat_pi_ellmer()` | `ChatPi`, an `ellmer::Chat` subclass that answers through `pi` (subscription models, no API key) | `chat_openai()` etc. |
 
 Internal (not exported): `pi_cli_args()`, `pi_run()`, `pi_run_async()`,
 `pi_start()`, `pi_parse_event()`, `pi_turns()`, `pi_text()`, `pi_check_events()`.
@@ -23,6 +24,8 @@ Internal (not exported): `pi_cli_args()`, `pi_run()`, `pi_run_async()`,
 
 - `R/client.R` — `pi_client()` and `models_pi()`; a client is a plain S3 list.
 - `R/chat.R` — the `PiChat` R6 class and `chat_pi()`.
+- `R/chat-ellmer.R` — `ChatPi`, an `ellmer::Chat` subclass; implements the
+  private `submit_turns`/`submit_turns_async` generators on top of the `pi` stream.
 - `R/utils.R` — argument building, process launching, JSONL parsing, event→table.
 - `R/piagent-package.R` — package docs and NAMESPACE imports.
 - `tests/testthat/` — pure tests always run; live tests need `options(piagent.test = TRUE)`

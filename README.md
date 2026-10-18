@@ -45,6 +45,24 @@ chat$chat("总结 DESCRIPTION", echo = "all") # 同时打印思考与工具调�
 promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 ```
 
+## 作为 ellmer 的 Chat 使用
+
+订阅制模型（只有登录、没有 API key）常常拿不到 API，但 `pi` 能通过 OAuth 登录使用。
+`chat_pi_ellmer()` 把 `pi` 包装成 `ellmer::Chat`，于是 ellmer 的整套接口可以直接驱动
+`pi` 的模型与工具：
+
+```r
+chat <- chat_pi_ellmer(model = "sonnet")   # 继承 ellmer::Chat
+chat$chat("总结 DESCRIPTION")
+chat$get_tokens()                          # ellmer 的 token / cost 表示
+chat$stream("统计 R/ 目录的行数")           # coro generator，逐块 yield
+chat$chat_async("列出 R/ 里的函数")
+```
+
+会话历史、工具与扩展都留在 `pi` 一侧：每次只发送本轮用户文本。因此
+`$set_turns()` 只改 R 侧的记录，`$register_tool()` 也无法回调 R 函数——工具请通过
+`pi_client(tools = )` 或 `pi` extension 配置。结构化输出请用 `chat_pi()$chat_structured()`。
+
 ## 客户端配置
 
 `pi_client()` 覆盖 `pi` 的命令行开关：
@@ -79,7 +97,7 @@ chat$get_tokens()             # input / output / cached_input / cost
 
 | ellmer            | piagent            |
 | ----------------- | ------------------ |
-| `chat_openai()`   | `chat_pi()`        |
+| `chat_openai()`   | `chat_pi()`、`chat_pi_ellmer()`（后者是真正的 `ellmer::Chat`） |
 | `Provider`        | `pi_client()`      |
 | `$chat()`         | `$chat()`（阻塞，同时流式打印） |
 | `$stream()`       | —（`$chat()` 已流式） |

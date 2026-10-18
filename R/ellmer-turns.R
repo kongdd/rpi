@@ -127,22 +127,17 @@ pi_turn_message <- function(turn) {
   msg
 }
 
-# The only ellmer internal dependency: guarded here, not private Chat methods.
-# Parsing and type conversion are shared with ellmer's own structured output.
+# Parsing and type conversion are shared with ellmer's own structured output;
+# `as_json()` (generic) and `convert_from_type()` (internal) cover both halves.
 pi_extract <- function(text, type, convert) {
   if (!is.logical(convert) || length(convert) != 1L || is.na(convert)) {
     stop("`convert` must be TRUE or FALSE.", call. = FALSE)
   }
-  txt <- trimws(text)
-  txt <- sub("^```[[:alnum:]]*\\s*", "", txt)
-  txt <- sub("\\s*```$", "", txt)
-  data <- jsonlite::fromJSON(txt, simplifyVector = FALSE)
-  if (!convert) return(data)
-  ns <- asNamespace("ellmer")
-  if (!exists("convert_from_type", ns, inherits = FALSE) ||
-      !all(c("x", "type") %in% names(formals(get("convert_from_type", ns))))) {
-    stop("Unsupported ellmer structured-output interface; use convert = FALSE.",
-         call. = FALSE)
+  parse <- function(simplify) {
+    txt <- sub("\\s*```$", "", sub("^```[[:alnum:]]*\\s*", "", trimws(text)))
+    jsonlite::fromJSON(txt, simplifyVector = simplify)
   }
-  get("convert_from_type", ns)(data, type)
+  if (!convert) return(parse(FALSE))
+  convert <- get("convert_from_type", asNamespace("ellmer"))
+  convert(parse(TRUE), type)
 }

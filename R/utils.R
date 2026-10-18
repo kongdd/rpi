@@ -36,11 +36,11 @@ pi_check_string <- function(x, arg) {
   x
 }
 
-pi_check_prompt <- function(x) {
-  if (!is.character(x) || length(x) != 1 || is.na(x) || !nzchar(x)) {
-    stop("`prompt` must be a single non-empty string.", call. = FALSE)
-  }
-  invisible(x)
+pi_short <- function(x, n = 200) {
+  if (is.null(x)) return("")
+  txt <- jsonlite::toJSON(x, auto_unbox = TRUE)
+  if (nchar(txt) > n) txt <- paste0(substr(txt, 1, n), "...")
+  txt
 }
 
 pi_elapsed <- function(start) {
@@ -119,32 +119,17 @@ pi_content_text <- function(content, type = "text") {
   paste(parts, collapse = "")
 }
 
-#' Final assistant text of a run
-#' @noRd
-pi_text <- function(events) {
-  for (i in rev(seq_along(events))) {
-    ev <- events[[i]]
-    if (identical(ev$type, "message_end") && identical(ev$message$role, "assistant")) {
-      return(pi_content_text(ev$message$content))
-    }
-  }
-  ""
-}
-
-pi_last_assistant <- function(events) {
-  for (i in rev(seq_along(events))) {
-    ev <- events[[i]]
-    if (identical(ev$type, "message_end") && identical(ev$message$role, "assistant")) {
-      return(ev$message)
-    }
-  }
-  NULL
-}
-
 #' Turn the assistant stop reason into an R error
 #' @noRd
 pi_check_events <- function(events, stderr = "") {
-  msg <- pi_last_assistant(events)
+  msg <- NULL
+  for (i in rev(seq_along(events))) {
+    ev <- events[[i]]
+    if (identical(ev$type, "message_end") && identical(ev$message$role, "assistant")) {
+      msg <- ev$message
+      break
+    }
+  }
   if (is.null(msg)) {
     stop("The `pi` run produced no assistant message.\n", stderr, call. = FALSE)
   }
@@ -163,45 +148,6 @@ pi_check_events <- function(events, stderr = "") {
 }
 
 # Running pi -----------------------------------------------------------------
-
-#' Turn the accumulated events into a message data table
-#' @noRd
-pi_turns <- function(events) {
-  rows <- list()
-  for (ev in events) {
-    if (!identical(ev$type, "message_end")) next
-    msg <- ev$message
-    if (!msg$role %in% c("user", "assistant")) next
-    usage <- msg$usage %||% list()
-    rows[[length(rows) + 1]] <- data.table::data.table(
-      role = msg$role,
-      text = pi_content_text(msg$content),
-      thinking = pi_content_text(msg$content, "thinking"),
-      model = msg$model %||% NA_character_,
-      input = as.numeric(usage$input %||% NA),
-      output = as.numeric(usage$output %||% NA),
-      cache_read = as.numeric(usage$cacheRead %||% NA),
-      cache_write = as.numeric(usage$cacheWrite %||% NA),
-      reasoning = as.numeric(usage$reasoning %||% NA),
-      total = as.numeric(usage$totalTokens %||% NA),
-      cost = as.numeric(usage$cost$total %||% NA),
-      duration = as.numeric(msg$durationMs %||% NA)
-    )
-  }
-  if (length(rows) == 0) {
-    out <- data.table::data.table(
-      role = character(), text = character(), thinking = character(),
-      model = character(), input = numeric(), output = numeric(),
-      cache_read = numeric(), cache_write = numeric(), reasoning = numeric(),
-      total = numeric(), cost = numeric(),
-      duration = numeric()
-    )
-  } else {
-    out <- data.table::rbindlist(rows)
-  }
-  out
-}
-
 #' Split a prompt into command line arguments
 #'
 #' A `@file` reference must be its own `pi` argument: `pi` attaches everything
@@ -239,87 +185,4 @@ pi_start <- function(client, args, prompt, files = character()) {
   )
   close(p$get_input_connection())
   p
-}
-
-#' Collect the event stream of one run, blocking until it finishes
-#' @noRd
-pi_run <- function(client, args, prompt, on_event = NULL, timeout = NULL) {
-  p <- pi_start(client, args, prompt)
-  on.exit(if (p$is_alive()) p$kill(), add = TRUE)
-  events <- list()
-  stderr <- character()
-  start <- Sys.time()
-
-  while (p$is_alive() || p$is_incomplete_output() || p$is_incomplete_error()) {
-    p$poll_io(200)
-    for (line in p$read_output_lines()) {
-      ev <- pi_parse_event(line)
-      if (!is.null(ev)) {
-        events[[length(events) + 1]] <- ev
-        if (!is.null(on_event)) on_event(ev)
-      }
-    }
-    stderr <- c(stderr, p$read_error_lines())
-
-    if (!is.null(timeout) && pi_elapsed(start) > timeout) {
-      p$kill()
-      stop("The `pi` run exceeded `timeout` (", timeout, " seconds).", call. = FALSE)
-    }
-  }
-
-  status <- p$get_exit_status()
-  stderr <- paste(stderr, collapse = "\n")
-  if (!identical(status, 0L)) {
-    stop("`pi` exited with status ", status, ".\n", stderr, call. = FALSE)
-  }
-  pi_check_events(events, stderr)
-  events
-}
-
-#' The asynchronous flavour of `pi_run()`
-#' @noRd
-pi_run_async <- function(client, args, prompt, on_event = NULL, timeout = NULL) {
-  p <- pi_start(client, args, prompt)
-  events <- list()
-  stderr <- character()
-  start <- Sys.time()
-
-  promises::promise(function(resolve, reject) {
-    step <- function() {
-      ok <- tryCatch({
-        for (line in p$read_output_lines()) {
-          ev <- pi_parse_event(line)
-          if (!is.null(ev)) {
-            events[[length(events) + 1]] <<- ev
-            if (!is.null(on_event)) on_event(ev)
-          }
-        }
-        stderr <<- c(stderr, p$read_error_lines())
-        TRUE
-      }, error = function(e) {
-        reject(e)
-        FALSE
-      })
-      if (!ok) return(invisible(NULL))
-
-      if (!is.null(timeout) && pi_elapsed(start) > timeout) {
-        p$kill()
-        reject(stop("The `pi` run timed out.", call. = FALSE))
-      } else if (p$is_alive() || p$is_incomplete_output() || p$is_incomplete_error()) {
-        later::later(step, 0.02)
-      } else if (!identical(p$get_exit_status(), 0L)) {
-        reject(stop(
-          "`pi` exited with status ", p$get_exit_status(), ".\n",
-          paste(stderr, collapse = "\n"), call. = FALSE
-        ))
-      } else {
-        err <- tryCatch(
-          { pi_check_events(events, paste(stderr, collapse = "\n")); NULL },
-          error = function(e) e
-        )
-        if (is.null(err)) resolve(events) else reject(err)
-      }
-    }
-    step()
-  })
 }

@@ -11,28 +11,28 @@ Public surface (keep it small):
 | Object | Role | ellmer analogue |
 | --- | --- | --- |
 | `pi_client()` | how to start `pi`: binary, dir, model, tools, session, args | `Provider` |
-| `chat_pi()` / `PiChat` | one conversation | `Chat` |
+| `chat_pi()` | alias for `chat_pi_ellmer()` | `Chat` |
 | `$chat()`, `$stream()`, `$chat_async()`, `$stream_async()` | send a prompt | same |
 | `$get_events()`, `$get_turns()`, `$get_tokens()`, `$get_cost()` | inspect the run | same |
 | `models_pi()` | `pi --list-models` as a data.table | `models_*()` |
 | `chat_pi_ellmer()` | `ChatPi`, an `ellmer::Chat` subclass that answers through `pi` (subscription models, no API key) | `chat_openai()` etc. |
 | `chat_pi_codex()` | direct Codex HTTP chat using pi's saved OAuth, with ellmer R tools | `chat_openai()` |
 
-Internal (not exported): `pi_cli_args()`, `pi_run()`, `pi_run_async()`,
-`pi_start()`, `pi_parse_event()`, `pi_turns()`, `pi_text()`, `pi_check_events()`.
+Internal (not exported): `pi_cli_args()`, `pi_start()`, `pi_parse_event()`,
+`pi_check_events()`.
 
 ## File layout
 
 - `R/client.R` — `pi_client()` and `models_pi()`; a client is a plain S3 list.
 - `R/chat-codex.R` — direct ellmer/Codex transport; reads but never rewrites
   pi's authorization. Forces SSE parsing even for silent chat calls.
-- `R/chat.R` — the `PiChat` R6 class and `chat_pi()`.
+- `R/chat.R` — `chat_pi()`, a thin alias for `chat_pi_ellmer()`.
 - `R/chat-ellmer.R` — `ChatPi`, an `ellmer::Chat` subclass using public method
   overrides, not ellmer's private generator hooks.
 - `R/ellmer-{stream,session,turns}.R` — process streaming, pi v3 session history,
   and ellmer message conversion. `set_turns()` forks instead of overwriting.
   Keep pi provider metadata/signatures intact; pi owns tool execution.
-- `R/utils.R` — argument building, process launching, JSONL parsing, event→table.
+- `R/utils.R` — argument building, process launching, JSONL parsing.
 - `R/piagent-package.R` — package docs and NAMESPACE imports.
 - `tests/testthat/` — pure tests always run; live tests need `options(piagent.test = TRUE)`
   (use `NOT_CRAN=true testthat::test_local()`).

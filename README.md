@@ -29,12 +29,12 @@ chat <- chat_pi(
 )
 
 chat$chat("这个包里哪些函数没有被引用？")
-chat$get_turns()     # 逐条消息：角色、文本、token、费用
+chat$get_turns()     # Turn 对象列表：文本、token、费用
 chat$get_cost()      # 累计费用（美元）
 ```
 
-`pi` 的会话（session）保存在磁盘上，同一个 `PiChat` 的后续调用会沿用历史，
-因此第二轮能记住第一轮的内容。
+`pi` 的会话保存在磁盘上，同一 chat 的后续调用沿用历史；
+`chat_pi()` 等价于 `chat_pi_ellmer()`。详见下节。
 
 ## 流式与异步
 
@@ -126,12 +126,12 @@ chat$get_tokens()             # input / output / cached_input / cost
 
 | ellmer            | piagent            |
 | ----------------- | ------------------ |
-| `chat_openai()`   | `chat_pi()`、`chat_pi_ellmer()`（后者是真正的 `ellmer::Chat`） |
+| `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_pi_codex()` |
 | `Provider`        | `pi_client()`      |
 | `$chat()`         | `$chat()`（阻塞，同时流式打印） |
-| `$stream()`       | —（`$chat()` 已流式） |
+| `$stream()`       | `$stream()`        |
 | `$chat_async()`   | `$chat_async()`    |
-| `$get_turns()`    | `$get_turns()`（data.table） |
+| `$get_turns()`    | `$get_turns()`     |
 | `$get_tokens()`   | `$get_tokens()`    |
 | `$register_tool()` | —（工具由 `pi_client(tools = )` 选择） |
 

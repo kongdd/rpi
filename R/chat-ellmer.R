@@ -120,6 +120,8 @@ ChatPi <- R6::R6Class(
       self$set_turns(c(self$get_turns(), list(user, assistant)))
     },
 
+    get_cost = function() sum(self$get_tokens()$cost, na.rm = TRUE),
+
     get_tokens = function(include_system_prompt = FALSE) {
       turns <- Filter(function(x) x@role == "assistant", self$get_turns())
       if (!length(turns)) return(data.table::data.table(

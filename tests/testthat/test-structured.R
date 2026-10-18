@@ -3,6 +3,8 @@ test_that("a plain JSON Schema is passed through", {
   expect_identical(pi_schema(schema), schema)
 })
 
+unlisted <- function(x) lapply(x, function(y) if (is.list(y)) unlist(y) else y)
+
 test_that("ellmer types are converted to a JSON Schema", {
   skip_if_not_installed("ellmer")
 
@@ -17,13 +19,13 @@ test_that("ellmer types are converted to a JSON Schema", {
   expect_identical(schema$type, "object")
   expect_identical(names(schema$properties), c("name", "score", "kind", "tags"))
   expect_identical(schema$properties$score$description, "0-1")
-  expect_identical(schema$required, I(list("name", "score", "kind")))
-  expect_identical(schema$properties$kind$enum, I(list("a", "b")))
+  expect_identical(unlisted(schema$required), list("name", "score", "kind"))
+  expect_identical(unlisted(schema$properties$kind$enum), list("a", "b"))
   expect_identical(schema$properties$tags$items$type, "string")
 })
 
 test_that("unsupported types fail clearly", {
-  expect_error(pi_schema(1), "JSON Schema list")
+  expect_error(pi_schema(1), "Can't find method")
 })
 
 test_that("JSON is extracted from prose and code fences", {

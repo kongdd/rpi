@@ -12,44 +12,26 @@ chat_pi(
 )
 }
 \arguments{
-\item{system_prompt}{Instruction appended to the built-in system prompt of
-\code{pi}, e.g. \code{"Answer in Chinese."}. \code{NULL} uses the
-\code{append_system_prompt} of the client. The built-in prompt cannot be
-replaced from a chat; use \code{pi_client(system_prompt = )} for that.}
+\item{system_prompt}{Instructions appended to pi's built-in prompt.}
 
-\item{client}{A \code{\link[=pi_client]{pi_client()}} describing how to start \code{pi}.}
+\item{client}{A \code{\link[=pi_client]{pi_client()}}.}
 
-\item{echo}{One of \code{"none"}, \code{"text"} or \code{"all"}. \code{"text"} (the default)
-streams the assistant answer as it is produced, \code{"all"} also streams
-reasoning and tool calls, \code{"none"} prints nothing.}
+\item{echo}{\code{"none"}, \code{"text"}, \code{"output"} or \code{"all"}.}
 
-\item{session_id}{Session id to use. Defaults to a fresh id, so every
-\code{PiChat} starts a new \code{pi} session. Ignored when the client has
-\code{session = FALSE}.}
+\item{session_id}{A pi session ID to resume, or \code{NULL} for a new session.}
 }
 \value{
-A \code{PiChat} object.
+A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
 }
 \description{
-\code{PiChat} is an R6 class that mirrors the \code{Chat} class of \pkg{ellmer}, but
-each conversation is executed by the \code{pi} command line tool in a working
-directory. \code{pi} keeps the conversation history in a session file, so the
-assistant remembers previous turns and can call its own tools (read, grep,
-bash, edit, ...) between turns.
+\code{\link[=chat_pi]{chat_pi()}} is a thin alias for \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}}: the same \code{ChatPi}
+object, driven by a \code{pi} subprocess. See \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}} for the
+available methods.
 }
 \examples{
 \dontrun{
-chat <- chat_pi("You are a concise assistant.", echo = "text")
-chat$chat("List the R packages used in this project")
-
-# a fresh, tool-less, stateless question
-chat <- chat_pi(client = pi_client(tools = "read,grep,find,ls", session = FALSE))
-chat$chat("Summarise DESCRIPTION")
-
+chat <- chat_pi("Answer briefly.")
+chat$chat("Which functions in R/ are unused?")
 chat$get_tokens()
-chat$get_cost()
 }
-}
-\seealso{
-\code{\link[=pi_client]{pi_client()}}
 }

@@ -1,44 +1,16 @@
 # Structured output ----------------------------------------------------------
 
-#' Coerce a type specification to a JSON Schema
+#' Coerce a type specification to a JSON Schema for the prompt
 #'
-#' `type` is either a JSON Schema written as a plain list, which needs no
-#' extra package, or a `type_*()` object of \pkg{ellmer}, whose S7 properties
-#' are read directly. `pi` has no schema flag, so the result is only used to
-#' instruct the model in the prompt.
+#' A JSON Schema list passes through unchanged; a `type_*()` object of
+#' \pkg{ellmer} is converted by the S7 `as_json()` generic's provider method.
+#' `pi` has no schema flag, so the result only instructs the model.
 #' @noRd
 pi_schema <- function(type) {
   if (is.list(type) && !is.null(type$type)) return(type)
-  pi_type_schema(type)
+  as_json <- get("as_json", asNamespace("ellmer"))
+  as_json(ellmer::Provider(name = "pi", base_url = ""), type)
 }
-
-pi_type_schema <- function(x) {
-  cls <- sub("^.*::", "", class(x)[[1]])
-  out <- switch(cls,
-    TypeObject = {
-      props <- lapply(x@properties, pi_type_schema)
-      required <- names(props)[vapply(x@properties, pi_is_required, logical(1))]
-      list(
-        type = "object",
-        properties = props,
-        required = I(as.list(required))
-      )
-    },
-    TypeArray = list(type = "array", items = pi_type_schema(x@items)),
-    TypeEnum = list(type = "string", enum = I(as.list(x@values))),
-    TypeBasic = list(type = x@type),
-    TypeJsonSchema = x@json,
-    stop(
-      "`type` must be a JSON Schema list or an {ellmer} `type_*()` object.",
-      call. = FALSE
-    )
-  )
-  description <- if (identical(cls, "TypeJsonSchema")) NULL else x@description
-  if (!is.null(description)) out$description <- description
-  out
-}
-
-pi_is_required <- function(prop) isTRUE(prop@required)
 
 #' Parse the JSON value of an assistant answer
 #'

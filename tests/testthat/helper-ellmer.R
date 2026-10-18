@@ -32,8 +32,14 @@ pi_sync <- function(promise) {
   out <- NULL
   promises::then(
     promise,
-    function(value) { out <<- value; done <<- TRUE },
-    function(err) { out <<- err; done <<- TRUE }
+    function(value) {
+      out <<- value
+      done <<- TRUE
+    },
+    function(err) {
+      out <<- err
+      done <<- TRUE
+    }
   )
   while (!done) later::run_now(0.05)
   out

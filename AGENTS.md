@@ -23,16 +23,21 @@ Internal (not exported): `pi_cli_args()`, `pi_start()`, `pi_parse_event()`,
 
 ## File layout
 
+- One capability per file. Pi plumbing first, then the chat surfaces:
 - `R/client.R` — `pi_client()` and `models_pi()`; a client is a plain S3 list.
+- `R/args.R` — building the `pi` command line, `@file` prompt splitting.
+- `R/process.R` — launching `pi` and parsing its JSONL event stream.
+- `R/chat-pi.R` — `ChatPi` (an `ellmer::Chat` subclass using public method
+  overrides, not ellmer's private generator hooks) plus the `chat_pi()` alias.
+- `R/chat-stream.R` — sync/async stream iterators driven by the process state.
+- `R/chat-session.R` — pi v3 session history, read/fork on `set_turns()`.
+  Keep pi provider metadata/signatures intact; pi owns tool execution.
+- `R/chat-turns.R` — ellmer Turn <-> pi message conversion and structured
+  output extraction.
 - `R/chat-codex.R` — direct ellmer/Codex transport; reads but never rewrites
   pi's authorization. Forces SSE parsing even for silent chat calls.
-- `R/chat.R` — `chat_pi()`, a thin alias for `chat_pi_ellmer()`.
-- `R/chat-ellmer.R` — `ChatPi`, an `ellmer::Chat` subclass using public method
-  overrides, not ellmer's private generator hooks.
-- `R/ellmer-{stream,session,turns}.R` — process streaming, pi v3 session history,
-  and ellmer message conversion. `set_turns()` forks instead of overwriting.
-  Keep pi provider metadata/signatures intact; pi owns tool execution.
-- `R/utils.R` — argument building, process launching, JSONL parsing.
+- `R/structured.R` — JSON extraction against an ellmer type.
+- `R/utils.R` — small shared helpers (binary lookup, echo mode).
 - `R/piagent-package.R` — package docs and NAMESPACE imports.
 - `tests/testthat/` — pure tests always run; live tests need `options(piagent.test = TRUE)`
   (use `NOT_CRAN=true testthat::test_local()`).

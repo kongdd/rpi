@@ -67,8 +67,10 @@ test_that("tool messages and per-request usage survive round trips", {
 
 test_that("set_turns changes model history and preserves the original session", {
   capture <- tempfile(fileext = ".rds")
-  cl <- fake_pi_client(session = TRUE, session_dir = tempfile(),
-                       env = c(FAKE_PI_CAPTURE = capture))
+  cl <- fake_pi_client(
+    session = TRUE, session_dir = tempfile(),
+    env = c(FAKE_PI_CAPTURE = capture)
+  )
   chat <- chat_pi_ellmer(client = cl, echo = "none")
   chat$chat("old history")
   old_id <- chat$get_session_id()
@@ -107,8 +109,10 @@ test_that("structured output handles scalars, objects and asynchronous conversio
   expect_equal(chat$chat_structured("hi", type = ellmer::type_integer(), convert = FALSE), 42)
   expect_equal(chat$chat_structured(type = ellmer::type_integer()), 42L)
   chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_JSON = '{"answer":42}')))
-  expect_equal(chat$chat_structured("hi", type = ellmer::type_object(answer = ellmer::type_integer())),
-               list(answer = 42L))
+  expect_equal(
+    chat$chat_structured("hi", type = ellmer::type_object(answer = ellmer::type_integer())),
+    list(answer = 42L)
+  )
 })
 
 test_that("inline and remote image inputs arrive as individual file arguments", {

@@ -14,7 +14,8 @@ pi_turn_input <- function(turn) {
     if (inherits(x, "ellmer::ContentText")) {
       text <- c(text, x@text)
     } else if (inherits(x, "ellmer::ContentImageInline")) {
-      path <- tempfile("pi-image-", fileext = paste0(".", sub("^image/", "", x@type)))
+      ext <- sub("^image/", "", x@type)
+      path <- tempfile("pi-image-", fileext = paste0(".", ext))
       files <- c(files, path)
       writeBin(jsonlite::base64_dec(x@data), path)
     } else if (inherits(x, "ellmer::ContentImageRemote")) {
@@ -22,12 +23,16 @@ pi_turn_input <- function(turn) {
       files <- c(files, path)
       utils::download.file(x@url, path, mode = "wb", quiet = TRUE)
     } else {
-      stop("Unsupported attachment. Use an @file reference for pi tools to read.",
-           call. = FALSE)
+      stop(
+        "Unsupported attachment. Use an @file reference for pi tools to read.",
+        call. = FALSE
+      )
     }
   }
   text <- paste(text, collapse = "\n")
-  if (!nzchar(trimws(text)) && !length(files)) stop("A prompt is required.", call. = FALSE)
+  if (!nzchar(trimws(text)) && !length(files)) {
+    stop("A prompt is required.", call. = FALSE)
+  }
   ok <- TRUE
   list(text = text, files = files)
 }
@@ -59,70 +64,104 @@ pi_message_turns <- function(messages) {
     }
     blocks <- if (is.character(msg$content)) {
       list(list(type = "text", text = msg$content))
-    } else msg$content
+    } else {
+      msg$content
+    }
     contents <- lapply(blocks, pi_block_content)
-    if (identical(msg$role, "user")) return(ellmer::UserTurn(contents))
+    if (identical(msg$role, "user")) {
+      return(ellmer::UserTurn(contents))
+    }
     for (x in contents) {
       if (inherits(x, "ellmer::ContentToolRequest")) requests[[x@id]] <<- x
     }
     usage <- msg$usage %||% list()
     ellmer::AssistantTurn(
       contents = contents, json = msg,
-      tokens = c(input = (usage$input %||% NA_real_) + (usage$cacheWrite %||% 0),
-                 output = usage$output %||% NA_real_, cached_input = usage$cacheRead %||% 0),
+      tokens = c(
+        input = (usage$input %||% NA_real_) + (usage$cacheWrite %||% 0),
+        output = usage$output %||% NA_real_,
+        cached_input = usage$cacheRead %||% 0
+      ),
       cost = as.numeric(usage$cost$total %||% NA_real_),
       duration = (msg$durationMs %||% NA_real_) / 1000,
-      finish_reason = switch(msg$stopReason %||% "", stop = "success",
-                              end_turn = "success", length = "max_tokens",
-                              toolUse = "tool_use", NA_character_)
+      finish_reason = switch(msg$stopReason %||% "",
+        stop = "success",
+        end_turn = "success",
+        length = "max_tokens",
+        toolUse = "tool_use",
+        NA_character_
+      )
     )
   })
 }
 
 pi_content_block <- function(x) {
-  if (inherits(x, "ellmer::ContentText")) return(list(type = "text", text = x@text))
+  if (inherits(x, "ellmer::ContentText")) {
+    return(list(type = "text", text = x@text))
+  }
   if (inherits(x, "ellmer::ContentThinking")) {
     return(list(type = "thinking", thinking = x@thinking))
   }
   if (inherits(x, "ellmer::ContentImageInline")) {
-    mime <- if (startsWith(x@type, "image/")) x@type else paste0("image/", x@type)
+    mime <- if (startsWith(x@type, "image/")) {
+      x@type
+    } else {
+      paste0("image/", x@type)
+    }
     return(list(type = "image", mimeType = mime, data = x@data))
   }
   if (inherits(x, "ellmer::ContentToolRequest")) {
-    return(x@extra$pi %||% list(type = "toolCall", id = x@id, name = x@name,
-                               arguments = x@arguments))
+    return(x@extra$pi %||% list(
+      type = "toolCall", id = x@id, name = x@name,
+      arguments = x@arguments
+    ))
   }
   stop("Cannot restore this content to pi history.", call. = FALSE)
 }
 
 pi_turn_message <- function(turn) {
-  if (length(turn@contents) == 1L &&
-      inherits(turn@contents[[1]], "ellmer::ContentToolResult")) {
-    result <- turn@contents[[1]]
-    if (!is.null(result@extra$pi)) return(result@extra$pi)
-    return(list(role = "toolResult", toolCallId = result@request@id,
-                toolName = result@request@name,
-                content = list(list(type = "text", text = as.character(result@value))),
-                isError = !is.null(result@error), timestamp = as.numeric(Sys.time()) * 1000))
+  contents <- turn@contents
+  if (length(contents) == 1L && inherits(
+    contents[[1]], "ellmer::ContentToolResult"
+  )) {
+    result <- contents[[1]]
+    if (!is.null(result@extra$pi)) {
+      return(result@extra$pi)
+    }
+    return(list(
+      role = "toolResult", toolCallId = result@request@id,
+      toolName = result@request@name,
+      content = list(list(type = "text", text = as.character(result@value))),
+      isError = !is.null(result@error),
+      timestamp = as.numeric(Sys.time()) * 1000
+    ))
   }
   if (!turn@role %in% c("user", "assistant")) {
     stop("Only user/assistant/tool turns can be restored to pi.", call. = FALSE)
   }
-  # Preserve provider replay metadata and signatures for untouched assistant turns.
+  # Preserve provider replay metadata and signatures for untouched turns.
   if (turn@role == "assistant" && identical(turn@json$role, "assistant")) {
     original <- pi_message_turns(list(turn@json))[[1]]
-    if (identical(original@contents, turn@contents)) return(turn@json)
+    if (identical(original@contents, turn@contents)) {
+      return(turn@json)
+    }
   }
-  msg <- list(role = turn@role, content = lapply(turn@contents, pi_content_block),
-              timestamp = as.numeric(Sys.time()) * 1000)
+  msg <- list(
+    role = turn@role, content = lapply(turn@contents, pi_content_block),
+    timestamp = as.numeric(Sys.time()) * 1000
+  )
   if (turn@role == "assistant") {
     msg$api <- "openai-responses"
     msg$provider <- "piagent"
     msg$model <- "imported"
     msg$stopReason <- "stop"
-    msg$usage <- list(input = 0, output = 0, cacheRead = 0, cacheWrite = 0,
-                      totalTokens = 0, cost = list(input = 0, output = 0,
-                                                  cacheRead = 0, cacheWrite = 0, total = 0))
+    msg$usage <- list(
+      input = 0, output = 0, cacheRead = 0, cacheWrite = 0,
+      totalTokens = 0, cost = list(
+        input = 0, output = 0,
+        cacheRead = 0, cacheWrite = 0, total = 0
+      )
+    )
   }
   msg
 }
@@ -137,7 +176,9 @@ pi_extract <- function(text, type, convert) {
     txt <- sub("\\s*```$", "", sub("^```[[:alnum:]]*\\s*", "", trimws(text)))
     jsonlite::fromJSON(txt, simplifyVector = simplify)
   }
-  if (!convert) return(parse(FALSE))
+  if (!convert) {
+    return(parse(FALSE))
+  }
   convert <- get("convert_from_type", asNamespace("ellmer"))
   convert(parse(TRUE), type)
 }

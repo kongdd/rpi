@@ -90,7 +90,10 @@ print.pi_client <- function(x, ...) {
   label("thinking", x$thinking)
   label("tools", x$tools)
   label("args", x$args)
-  label("session", if (x$session) paste("persistent", x$session_dir %||% "") else "off")
+  label(
+    "session",
+    if (x$session) paste("persistent", x$session_dir %||% "") else "off"
+  )
   invisible(x)
 }
 

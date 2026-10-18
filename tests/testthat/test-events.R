@@ -6,10 +6,14 @@ events <- list(
   list(type = "message_update", assistantMessageEvent = list(type = "text_delta", delta = "he")),
   list(type = "message_end", message = list(
     role = "assistant", model = "test-model",
-    content = list(list(type = "thinking", thinking = "hmm"),
-                   list(type = "text", text = "hello")),
-    usage = list(input = 10, output = 2, cacheRead = 5, cacheWrite = 0,
-                 cost = list(total = 0.5)),
+    content = list(
+      list(type = "thinking", thinking = "hmm"),
+      list(type = "text", text = "hello")
+    ),
+    usage = list(
+      input = 10, output = 2, cacheRead = 5, cacheWrite = 0,
+      cost = list(total = 0.5)
+    ),
     durationMs = 1200, stopReason = "stop"
   )),
   list(type = "agent_settled", aborted = FALSE)

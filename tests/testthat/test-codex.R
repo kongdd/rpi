@@ -50,15 +50,18 @@ test_that("missing, invalid and expired credentials fail without leaking secrets
   expect_match(conditionMessage(err), "Cannot read")
   expect_false(grepl("DO_NOT_PRINT", conditionMessage(err)))
   writeLines('{"openai-codex":{"type":"api_key","key":"secret"}}', path)
-  expect_error(pi_codex_credentials(path), "Missing Codex OAuth")
+  expect_error(pi_codex_credentials(path), "No Codex OAuth")
   writeLines('{"openai-codex":{"type":"oauth","access":"secret"}}', path)
-  expect_error(pi_codex_credentials(path), "Missing Codex OAuth")
+  expect_error(pi_codex_credentials(path), "No Codex OAuth")
 })
 
 test_that("pi's agent directory is used automatically", {
   old <- Sys.getenv("PI_CODING_AGENT_DIR", unset = NA_character_)
-  on.exit(if (is.na(old)) Sys.unsetenv("PI_CODING_AGENT_DIR") else
-    Sys.setenv(PI_CODING_AGENT_DIR = old))
+  on.exit(if (is.na(old)) {
+    Sys.unsetenv("PI_CODING_AGENT_DIR")
+  } else {
+    Sys.setenv(PI_CODING_AGENT_DIR = old)
+  })
   Sys.setenv(PI_CODING_AGENT_DIR = tempdir())
   expect_equal(pi_auth_file(), file.path(tempdir(), "auth.json"))
   Sys.unsetenv("PI_CODING_AGENT_DIR")
@@ -115,7 +118,10 @@ test_that("Codex answers through ellmer with real pi authorization", {
   before <- readBin(pi_auth_file(), "raw", file.info(pi_auth_file())$size)
   called <- FALSE
   chat$register_tool(ellmer::tool(
-    function(x, y) { called <<- TRUE; x + y }, "Add two numbers in R",
+    function(x, y) {
+      called <<- TRUE
+      x + y
+    }, "Add two numbers in R",
     arguments = list(x = ellmer::type_number(), y = ellmer::type_number()),
     name = "piagent_test_add"
   ))
@@ -123,7 +129,9 @@ test_that("Codex answers through ellmer with real pi authorization", {
   expect_true(called)
   expect_match(answer, "42")
   expect_match(pi_sync(chat$chat_async("Reply only PIAGENT_ASYNC.")),
-               "PIAGENT_ASYNC", ignore.case = TRUE)
+    "PIAGENT_ASYNC",
+    ignore.case = TRUE
+  )
   expect_gt(sum(chat$get_tokens()$output), 0)
   expect_true(any(vapply(chat$get_turns(), function(x) {
     any(vapply(x@contents, function(y) inherits(y, "ellmer::ContentToolRequest"), logical(1)))

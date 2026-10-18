@@ -7,7 +7,9 @@
 #' `pi` has no schema flag, so the result only instructs the model.
 #' @noRd
 pi_schema <- function(type) {
-  if (is.list(type) && !is.null(type$type)) return(type)
+  if (is.list(type) && !is.null(type$type)) {
+    return(type)
+  }
   as_json <- get("as_json", asNamespace("ellmer"))
   as_json(ellmer::Provider(name = "pi", base_url = ""), type)
 }

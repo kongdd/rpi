@@ -21,7 +21,10 @@ pi_stream_stop <- function(st) {
     return(TRUE)
   }
   if (is.finite(st$timeout) && pi_elapsed(st$start) > st$timeout) {
-    stop("The `pi` run exceeded `timeout` (", st$timeout, " seconds).", call. = FALSE)
+    stop(
+      "The `pi` run exceeded `timeout` (", st$timeout, " seconds).",
+      call. = FALSE
+    )
   }
   FALSE
 }
@@ -44,9 +47,13 @@ pi_stream_poll <- function(st, wait = FALSE) {
         utils::flush.console()
       }
       if (!text && !st$content) next
-      value <- if (!st$content) ame$delta else if (thinking) {
+      value <- if (!st$content) {
+        ame$delta
+      } else if (thinking) {
         ellmer::ContentThinking(ame$delta)
-      } else ellmer::ContentText(ame$delta)
+      } else {
+        ellmer::ContentText(ame$delta)
+      }
       values[[length(values) + 1L]] <- value
     } else if (identical(ev$type, "tool_execution_start") && st$echo == "all") {
       cat("\n[tool] ", ev$toolName, ": ", pi_short(ev$args), "\n", sep = "")
@@ -58,7 +65,9 @@ pi_stream_poll <- function(st, wait = FALSE) {
 }
 
 pi_stream_check <- function(st) {
-  if (st$cancelled) return(invisible(NULL))
+  if (st$cancelled) {
+    return(invisible(NULL))
+  }
   stderr <- paste(st$stderr, collapse = "\n")
   status <- st$p$get_exit_status()
   if (!identical(status, 0L)) {
@@ -110,5 +119,7 @@ pi_sleep <- function(seconds = 0.05) {
 }
 
 pi_running <- function(p) {
-  !is.null(p) && (p$is_alive() || p$is_incomplete_output() || p$is_incomplete_error())
+  !is.null(p) && (
+    p$is_alive() || p$is_incomplete_output() || p$is_incomplete_error()
+  )
 }

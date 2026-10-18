@@ -3,17 +3,22 @@ test_that("pi histories select the active branch and preserve raw extension reco
   store <- piagent:::pi_history_store(cl)
   entries <- piagent:::pi_history_read(store$path)
   entry <- function(id, parent, text, type = "message") {
-    list(type = type, id = id, parentId = parent,
-         message = list(role = "user", content = text))
+    list(
+      type = type, id = id, parentId = parent,
+      message = list(role = "user", content = text)
+    )
   }
   entries <- c(entries, list(
     entry("a", NULL, "root"), entry("b", "a", "abandoned"),
     entry("c", "a", "active"),
     list(type = "custom", id = "d", parentId = "c", customType = "my-extension", data = list(x = 42))
   ))
-  lines <- vapply(entries, function(x) as.character(jsonlite::toJSON(
-    x, auto_unbox = TRUE, null = "null"
-  )), character(1))
+  lines <- vapply(entries, function(x) {
+    as.character(jsonlite::toJSON(
+      x,
+      auto_unbox = TRUE, null = "null"
+    ))
+  }, character(1))
   writeLines(lines, store$path)
   messages <- piagent:::pi_history_messages(store$path)
   expect_equal(vapply(messages, function(x) x$content, character(1)), c("root", "active"))
@@ -21,12 +26,16 @@ test_that("pi histories select the active branch and preserve raw extension reco
 })
 
 test_that("provider signatures and cache accounting survive conversion", {
-  msg <- list(role = "assistant", content = list(
-    list(type = "thinking", thinking = "Thought", thinkingSignature = "opaque"),
-    list(type = "text", text = "Answer", textSignature = "opaque-text")
-  ), provider = "anthropic", model = "test", api = "anthropic-messages",
-  stopReason = "stop", usage = list(input = 10, output = 3, cacheRead = 100,
-                                    cacheWrite = 50, cost = list(total = 0)))
+  msg <- list(
+    role = "assistant", content = list(
+      list(type = "thinking", thinking = "Thought", thinkingSignature = "opaque"),
+      list(type = "text", text = "Answer", textSignature = "opaque-text")
+    ), provider = "anthropic", model = "test", api = "anthropic-messages",
+    stopReason = "stop", usage = list(
+      input = 10, output = 3, cacheRead = 100,
+      cacheWrite = 50, cost = list(total = 0)
+    )
+  )
   turn <- piagent:::pi_message_turns(list(msg))[[1]]
   expect_equal(turn@tokens, c(input = 60, output = 3, cached_input = 100))
   expect_identical(piagent:::pi_turn_message(turn), msg)

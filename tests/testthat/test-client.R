@@ -2,7 +2,9 @@ pi_client_test <- function(...) pi_client(bin = "pi", dir = ".", ...)
 
 flag <- function(args, name) {
   i <- which(args == name)
-  if (length(i) == 0) return(NA_character_)
+  if (length(i) == 0) {
+    return(NA_character_)
+  }
   args[i + 1]
 }
 

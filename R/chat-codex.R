@@ -34,14 +34,20 @@ chat_pi_codex <- function(model, system_prompt = NULL, params = NULL,
     base_url = "https://chatgpt.com/backend-api/codex",
     credentials = function() pi_codex_credentials(auth_file),
     model = model, params = params, echo = echo,
-    api_args = list(instructions = "You are a helpful assistant.", service_tier = NULL),
+    api_args = list(
+      instructions = "You are a helpful assistant.",
+      service_tier = NULL
+    ),
     api_headers = c(originator = "pi", `OpenAI-Beta` = "responses=experimental")
   )
-  ChatPiCodex$new(provider = chat$get_provider(), model = chat$get_model_object(),
-                  system_prompt = system_prompt, echo = echo)
+  ChatPiCodex$new(
+    provider = chat$get_provider(), model = chat$get_model_object(),
+    system_prompt = system_prompt, echo = echo
+  )
 }
 
 # Codex only returns SSE; force ellmer's stream parser even for silent calls.
+# nolint start: object_name_linter, object_usage_linter.
 ChatPiCodex <- R6::R6Class(
   "ChatPiCodex",
   inherit = ellmer::Chat,
@@ -56,22 +62,27 @@ ChatPiCodex <- R6::R6Class(
 )
 
 pi_auth_file <- function() {
-  home <- if (.Platform$OS.type == "windows") Sys.getenv("USERPROFILE") else path.expand("~")
-  dir <- Sys.getenv("PI_CODING_AGENT_DIR", file.path(home, ".pi", "agent"))
+  dir <- Sys.getenv("PI_CODING_AGENT_DIR", file.path(pi_home(), ".pi", "agent"))
   file.path(path.expand(dir), "auth.json")
 }
 
 pi_codex_credentials <- function(path) {
+  fail <- function(message) {
+    stop(paste0(message, " Run `/login openai-codex` in pi."), call. = FALSE)
+  }
   cred <- tryCatch(
     jsonlite::fromJSON(path, simplifyVector = FALSE)[["openai-codex"]],
-    error = function(e) stop("Cannot read pi's authorization file.", call. = FALSE)
+    error = function(e) fail("Cannot read pi's authorization file.")
   )
-  if (!identical(cred$type, "oauth") ||
-      !all(c("access", "accountId", "expires") %in% names(cred))) {
-    stop("Missing Codex OAuth credentials. Run `/login openai-codex` in pi.", call. = FALSE)
-  }
+  ok <- identical(cred$type, "oauth") &&
+    all(c("access", "accountId", "expires") %in% names(cred))
+  if (!ok) fail("No Codex OAuth credentials.")
   if (cred$expires <= as.numeric(Sys.time()) * 1000) {
-    stop("Codex OAuth credentials expired. Run `/login openai-codex` in pi.", call. = FALSE)
+    fail("Codex OAuth credentials expired.")
   }
-  list(Authorization = paste("Bearer", cred$access), `chatgpt-account-id` = cred$accountId)
+  list(
+    Authorization = paste("Bearer", cred$access),
+    `chatgpt-account-id` = cred$accountId
+  )
 }
+# nolint end.

@@ -6,9 +6,10 @@
 \alias{piagent-package}
 \title{piagent: chat with the pi coding agent from R}
 \description{
-An \pkg{ellmer}-style interface to the \href{https://github.com/earendil-works/pi}{pi}
-coding agent: \code{\link[=chat_pi]{chat_pi()}} turns a working directory over to a \code{pi} subprocess
-that can read files, run shell commands, and edit code:
+An \pkg{ellmer}-style interface to the
+\href{https://github.com/earendil-works/pi}{pi} coding agent: \code{\link[=chat_pi]{chat_pi()}}
+turns a working directory over to a \code{pi} subprocess that can read files,
+run shell commands, and edit code:
 }
 \details{
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{chat <- chat_pi(client = pi_client(dir = "~/my-project"))

@@ -38,7 +38,9 @@ refreshed in pi before retrying. Only Codex OAuth credentials are supported;
 these are not API keys for \code{api.openai.com}.
 
 Codex requires streaming, including when \code{echo = "none"}. The usual ellmer
-chat, streaming, asynchronous and R tool interfaces remain available.
+chat, asynchronous and R tool interfaces remain available.
+Use \verb{$chat()} to send prompts; \verb{$stream()} is disabled.
+\verb{$stream_async()} remains available as an asynchronous generator.
 Parameters must be supported by Codex; for example, \code{max_tokens} is not.
 OpenAI-specific file upload and batch endpoints are not supported by Codex.
 }

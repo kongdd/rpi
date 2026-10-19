@@ -39,11 +39,14 @@ chat$get_cost()      # 累计费用（美元）
 ## 流式与异步
 
 ```r
-chat$chat("总结 DESCRIPTION")               # 边生成边打印
+text <- chat$chat("总结 DESCRIPTION")      # 实时打印，并返回完整文本
 chat$chat("总结 DESCRIPTION", echo = "all") # 同时打印思考与工具调用
 
 promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 ```
+
+统一使用 `$chat()` 实时输出，`$stream()` 已移除。
+`$stream_async()` 仅供需要异步逐块处理的程序使用。
 
 ## 作为 ellmer 的 Chat 使用
 
@@ -54,7 +57,6 @@ promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 chat <- chat_pi_ellmer(model = "sonnet")   # 继承 ellmer::Chat
 chat$chat("总结 DESCRIPTION")
 chat$get_tokens()                          # ellmer 的 token / cost 表示
-chat$stream("统计 R/ 目录的行数")           # coro generator，逐块 yield
 chat$chat_async("列出 R/ 里的函数")
 ```
 
@@ -129,7 +131,7 @@ chat$get_tokens()             # input / output / cached_input / cost
 | `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_codex()` |
 | `Provider`        | `pi_client()`      |
 | `$chat()`         | `$chat()`（阻塞，同时流式打印） |
-| `$stream()`       | `$stream()`        |
+| `$stream()`       | —（控制台输出用 `$chat()`） |
 | `$chat_async()`   | `$chat_async()`    |
 | `$get_turns()`    | `$get_turns()`     |
 | `$get_tokens()`   | `$get_tokens()`    |

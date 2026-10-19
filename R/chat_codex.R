@@ -10,7 +10,9 @@
 #' these are not API keys for `api.openai.com`.
 #'
 #' Codex requires streaming, including when `echo = "none"`. The usual ellmer
-#' chat, streaming, asynchronous and R tool interfaces remain available.
+#' chat, asynchronous and R tool interfaces remain available.
+#' Use `$chat()` to send prompts; `$stream()` is disabled.
+#' `$stream_async()` remains available as an asynchronous generator.
 #' Parameters must be supported by Codex; for example, `max_tokens` is not.
 #' OpenAI-specific file upload and batch endpoints are not supported by Codex.
 #'
@@ -32,7 +34,7 @@ chat_codex <- function(model, system_prompt = NULL, params = NULL,
   echo <- match.arg(echo)
   chat <- ellmer::chat_openai(
     base_url = "https://chatgpt.com/backend-api/codex",
-    credentials = function() pi_codex_credentials(auth_file),
+    credentials = \() pi_codex_credentials(auth_file),
     model = model, params = params, echo = echo,
     api_args = list(
       instructions = "You are a helpful assistant.",
@@ -48,9 +50,16 @@ chat_codex <- function(model, system_prompt = NULL, params = NULL,
 
 # Codex only returns SSE; force ellmer's stream parser even for silent calls.
 # nolint start: object_name_linter, object_usage_linter.
-ChatPiCodex <- R6::R6Class(
+ChatPiCodex <- R6Class(
   "ChatPiCodex",
-  inherit = ellmer::Chat,
+  inherit = Chat,
+  public = list(
+    # Block ellmer's inherited method; use chat() for console output.
+    stream = NULL,
+    get_turns = function(include_system_prompt = FALSE) {
+      structure(super$get_turns(include_system_prompt), class = c("pi_turns", "list"))
+    }
+  ),
   private = list(
     submit_turns = function(user_turn, stream, ...) {
       super$submit_turns(user_turn, stream = TRUE, ...)
@@ -71,8 +80,8 @@ pi_codex_credentials <- function(path) {
     stop(paste0(message, " Run `/login openai-codex` in pi."), call. = FALSE)
   }
   cred <- tryCatch(
-    jsonlite::fromJSON(path, simplifyVector = FALSE)[["openai-codex"]],
-    error = function(e) fail("Cannot read pi's authorization file.")
+    fromJSON(path, simplifyVector = FALSE)[["openai-codex"]],
+    error = \(e) fail("Cannot read pi's authorization file.")
   )
   ok <- identical(cred$type, "oauth") &&
     all(c("access", "accountId", "expires") %in% names(cred))

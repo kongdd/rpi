@@ -11,9 +11,9 @@ test_that("ChatPi inherits the public Chat API without overriding private genera
   expect_length(chat$get_turns(), 2)
 })
 
-test_that("stream and asynchronous methods yield only answer deltas", {
+test_that("chat and asynchronous methods yield only answers", {
   chat <- chat_pi_ellmer(client = fake_pi_client(), echo = "none")
-  expect_equal(paste(unlist(coro::collect(chat$stream("hi"))), collapse = ""), "Hello from pi")
+  expect_equal(chat$chat("hi"), "Hello from pi")
   expect_equal(pi_sync(chat$chat_async("hi")), "Hello from pi")
   chunks <- pi_sync(coro::async_collect(chat$stream_async("hi")))
   expect_equal(paste(unlist(chunks), collapse = ""), "Hello from pi")
@@ -22,7 +22,7 @@ test_that("stream and asynchronous methods yield only answer deltas", {
 
 test_that("content streams include thinking even when echo is none", {
   chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
-  chunks <- coro::collect(chat$stream("hi", stream = "content"))
+  chunks <- pi_sync(coro::async_collect(chat$stream_async("hi", stream = "content")))
   expect_s7_class(chunks[[1]], ellmer::ContentThinking)
   expect_s7_class(chunks[[2]], ellmer::ContentText)
   expect_equal(chunks[[1]]@thinking, "Let me think")
@@ -39,10 +39,11 @@ test_that("the client timeout works in both modes", {
 test_that("unused streams do not start a process or consume timeout", {
   capture <- tempfile(fileext = ".rds")
   chat <- chat_pi_ellmer(client = fake_pi_client(timeout = 1, env = c(FAKE_PI_CAPTURE = capture)))
-  iterator <- chat$stream("hi")
+  iterator <- chat$stream_async("hi")
   expect_false(file.exists(capture))
   Sys.sleep(1.1)
-  expect_equal(paste(unlist(coro::collect(iterator)), collapse = ""), "Hello from pi")
+  chunks <- pi_sync(coro::async_collect(iterator))
+  expect_equal(paste(unlist(chunks), collapse = ""), "Hello from pi")
 })
 
 test_that("tool messages and per-request usage survive round trips", {
@@ -136,10 +137,10 @@ test_that("inline and remote image inputs arrive as individual file arguments", 
 test_that("cancellation records a partial turn and does not charge zero tokens", {
   chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_PAUSE = "5")))
   controller <- ellmer::stream_controller()
-  iterator <- chat$stream("hi", controller = controller)
-  expect_equal(iterator(), "Hello from pi")
+  iterator <- chat$stream_async("hi", controller = controller)
+  expect_equal(pi_sync(iterator()), "Hello from pi")
   controller$cancel()
-  coro::collect(iterator)
+  pi_sync(coro::async_collect(iterator))
   expect_s7_class(chat$last_turn(), ellmer::AssistantPartialTurn)
   expect_equal(chat$last_turn()@text, "Hello from pi")
   expect_length(chat$get_turns(), 2)

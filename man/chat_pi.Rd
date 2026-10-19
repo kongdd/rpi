@@ -28,6 +28,12 @@ A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
 object, driven by a \code{pi} subprocess. See \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}} for the
 available methods.
 }
+\details{
+\verb{$chat("prompt")} prints text as it arrives and invisibly returns the
+complete answer, unless \code{echo = "none"} is used for a silent, visible return.
+\verb{$stream()} is disabled. \verb{$stream_async()} remains available for applications
+that need an asynchronous generator.
+}
 \examples{
 \dontrun{
 chat <- chat_pi("Answer briefly.")

@@ -1,7 +1,7 @@
 # %% 
 # 先在 pi 中执行 /login openai-codex；这里只复用授权，不启动 pi。
-library(piagent)
 devtools::load_all(".")
+# library(piagent)
 
 chat <- chat_codex(
   model = "gpt-6-luna",
@@ -19,7 +19,7 @@ chat$register_tool(ellmer::tool(
   name = "add"
 ))
 
-# %% 
 r = chat$chat("调用 add 计算 17 + 25。")
-chat$get_tokens()
+strchat$get_tokens()
 # %% 
+

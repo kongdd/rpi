@@ -11,7 +11,7 @@ pi_schema <- function(type) {
     return(type)
   }
   as_json <- get("as_json", asNamespace("ellmer"))
-  as_json(ellmer::Provider(name = "pi", base_url = ""), type)
+  as_json(Provider(name = "pi", base_url = ""), type)
 }
 
 #' Parse the JSON value of an assistant answer
@@ -30,7 +30,7 @@ pi_json_parse <- function(text) {
   end <- max(c(gregexpr("\\}", txt)[[1]], gregexpr("\\]", txt)[[1]]))
   if (end > 0) txt <- substr(txt, 1, end)
   tryCatch(
-    jsonlite::fromJSON(txt, simplifyVector = TRUE),
+    fromJSON(txt, simplifyVector = TRUE),
     error = function(e) {
       stop(
         "Cannot parse the JSON answer: ", conditionMessage(e), "\n",

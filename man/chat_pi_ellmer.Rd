@@ -11,14 +11,6 @@ chat_pi_ellmer(
   session_id = NULL,
   echo = "text"
 )
-
-chat_pi_ellmer(
-  client = pi_client(),
-  model = NULL,
-  system_prompt = NULL,
-  session_id = NULL,
-  echo = "text"
-)
 }
 \arguments{
 \item{client}{A \code{\link[=pi_client]{pi_client()}}.}
@@ -33,13 +25,8 @@ chat_pi_ellmer(
 }
 \value{
 A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
-
-A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
 }
 \description{
-\code{ChatPi} inherits from \link[ellmer:Chat]{ellmer::Chat}, but runs pi instead of calling an
-HTTP API. Authentication, tools and extensions are managed by pi.
-
 \code{ChatPi} inherits from \link[ellmer:Chat]{ellmer::Chat}, but runs pi instead of calling an
 HTTP API. Authentication, tools and extensions are managed by pi.
 }
@@ -54,25 +41,8 @@ Inline and remote images are supported. Other attachments should be passed
 as \verb{@file} references for pi tools to read. R tools are not supported.
 With \code{client$session = FALSE}, temporary session files are used only within
 this R object and removed by \verb{$close()} (or garbage collection).
-
-History is read from the active branch of the pi session, including tool
-requests and results. \verb{$set_turns()} forks a new session containing the
-supplied history; the original file is never overwritten. Compaction and
-extension metadata remain available through \verb{$get_events()}.
-
-Structured output uses prompt instructions, not provider-enforced schemas.
-Inline and remote images are supported. Other attachments should be passed
-as \verb{@file} references for pi tools to read. R tools are not supported.
-With \code{client$session = FALSE}, temporary session files are used only within
-this R object and removed by \verb{$close()} (or garbage collection).
 }
 \examples{
-\dontrun{
-chat <- chat_pi_ellmer()
-chat$chat("Summarise DESCRIPTION")
-chat$get_turns()
-chat$get_tokens()
-}
 \dontrun{
 chat <- chat_pi_ellmer()
 chat$chat("Summarise DESCRIPTION")

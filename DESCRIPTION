@@ -11,6 +11,8 @@ Description: An 'ellmer'-style interface to the 'pi' coding agent command line
     Also supports direct 'ellmer' requests using saved 'Codex' OAuth credentials.
 License: GPL-3
 Encoding: UTF-8
+Depends:
+    R (>= 4.1.0)
 Imports:
     coro,
     data.table,

@@ -6,8 +6,8 @@ pi_parse_event <- function(line) {
     return(NULL)
   }
   tryCatch(
-    jsonlite::fromJSON(line, simplifyVector = FALSE),
-    error = function(e) NULL
+    fromJSON(line, simplifyVector = FALSE),
+    error = \(e) NULL
   )
 }
 
@@ -21,7 +21,7 @@ pi_content_text <- function(content, type = "text") {
   }
   parts <- vapply(
     content,
-    function(x) if (identical(x$type, type)) x[[field]] %||% "" else "",
+    \(x) if (identical(x$type, type)) x[[field]] %||% "" else "",
     character(1)
   )
   paste(parts, collapse = "")

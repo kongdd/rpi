@@ -30,10 +30,10 @@ pi_history_store <- function(client, id = NULL) {
       found <- Filter(function(path) {
         tryCatch(
           {
-            header <- jsonlite::fromJSON(readLines(path, n = 1L, warn = FALSE))
+            header <- fromJSON(readLines(path, n = 1L, warn = FALSE))
             identical(header$id, id)
           },
-          error = function(e) FALSE
+          error = \(e) FALSE
         )
       }, candidates)
       if (length(found) > 1L) stop("Ambiguous pi session ID.", call. = FALSE)
@@ -48,7 +48,7 @@ pi_history_store <- function(client, id = NULL) {
   store$dir <- normalizePath(dir, winslash = "/", mustWork = TRUE)
   store$path <- pi_history_fork(store, client$dir, list(), id = id)
   if (!client$session) {
-    reg.finalizer(store, function(x) unlink(x$files), onexit = TRUE)
+    reg.finalizer(store, \(x) unlink(x$files), onexit = TRUE)
   }
   store
 }
@@ -58,10 +58,7 @@ pi_history_read <- function(path) {
     stop("Pi session file is missing: ", path, call. = FALSE)
   }
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  entries <- lapply(
-    lines[nzchar(lines)], jsonlite::fromJSON,
-    simplifyVector = FALSE
-  )
+  entries <- lapply(lines[nzchar(lines)], \(x) fromJSON(x, simplifyVector = FALSE))
   v3 <- identical(entries[[1]]$type, "session") &&
     identical(as.integer(entries[[1]]$version), 3L)
   if (!length(entries) || !v3) {
@@ -77,7 +74,7 @@ pi_history_messages <- function(path) {
   if (!length(entries)) {
     return(list())
   }
-  ids <- vapply(entries, function(x) x$id, character(1))
+  ids <- vapply(entries, \(x) x$id, character(1))
   current <- length(entries)
   branch <- list()
   seen <- integer()
@@ -89,10 +86,10 @@ pi_history_messages <- function(path) {
     current <- match(entry$parentId %||% "", ids)
   }
   messages <- lapply(
-    Filter(function(x) identical(x$type, "message"), branch),
-    function(x) x$message
+    Filter(\(x) identical(x$type, "message"), branch),
+    \(x) x$message
   )
-  Filter(function(x) x$role %in% c("user", "assistant", "toolResult"), messages)
+  Filter(\(x) x$role %in% c("user", "assistant", "toolResult"), messages)
 }
 
 # Fork on replacement: never destroy the original session or extensions.

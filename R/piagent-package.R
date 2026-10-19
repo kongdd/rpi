@@ -15,6 +15,7 @@
 #' @importFrom coro generator loop yield
 #' @importFrom ellmer AssistantTurn Chat ContentText ContentThinking
 #' @importFrom ellmer Model Provider
+#' @importFrom jsonlite fromJSON
 #' @importFrom R6 R6Class
 "_PACKAGE"
 

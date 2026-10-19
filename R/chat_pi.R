@@ -34,47 +34,11 @@ chat_pi_ellmer <- function(client = pi_client(), model = NULL,
   ChatPi$new(client, model, system_prompt, session_id, echo)
 }
 
-#' Chat with pi through the ellmer interface
-#'
-#' `ChatPi` inherits from [ellmer::Chat], but runs pi instead of calling an
-#' HTTP API. Authentication, tools and extensions are managed by pi.
-#'
-#' History is read from the active branch of the pi session, including tool
-#' requests and results. `$set_turns()` forks a new session containing the
-#' supplied history; the original file is never overwritten. Compaction and
-#' extension metadata remain available through `$get_events()`.
-#'
-#' Structured output uses prompt instructions, not provider-enforced schemas.
-#' Inline and remote images are supported. Other attachments should be passed
-#' as `@file` references for pi tools to read. R tools are not supported.
-#' With `client$session = FALSE`, temporary session files are used only within
-#' this R object and removed by `$close()` (or garbage collection).
-#'
-#' @param client A [pi_client()].
-#' @param model Model pattern; `NULL` uses the client or pi default.
-#' @param system_prompt Instructions appended to pi's built-in prompt.
-#' @param session_id A pi session ID to resume, or `NULL` for a new session.
-#' @param echo `"none"`, `"text"`, `"output"` or `"all"`; defaults to live text.
-#' @return A `ChatPi`, inheriting from `ellmer::Chat`.
-#' @export
-#' @examples
-#' \dontrun{
-#' chat <- chat_pi_ellmer()
-#' chat$chat("Summarise DESCRIPTION")
-#' chat$get_turns()
-#' chat$get_tokens()
-#' }
-chat_pi_ellmer <- function(client = pi_client(), model = NULL,
-                           system_prompt = NULL, session_id = NULL,
-                           echo = "text") {
-  ChatPi$new(client, model, system_prompt, session_id, echo)
-}
-
 #' @noRd
 # nolint start: object_name_linter, object_usage_linter.
-ChatPi <- R6::R6Class(
+ChatPi <- R6Class(
   "ChatPi",
-  inherit = ellmer::Chat,
+  inherit = Chat,
   public = list(
     initialize = function(client = pi_client(), model = NULL,
                           system_prompt = NULL, session_id = NULL,
@@ -92,8 +56,8 @@ ChatPi <- R6::R6Class(
       }
 
       super$initialize(
-        provider = ellmer::Provider(name = "pi", base_url = ""),
-        model = ellmer::Model(name = model %||% client$model %||% ""),
+        provider = Provider(name = "pi", base_url = ""),
+        model = Model(name = model %||% client$model %||% ""),
         system_prompt = system_prompt, echo = echo
       )
       private$client <- client
@@ -103,25 +67,19 @@ ChatPi <- R6::R6Class(
     },
     chat = function(..., echo = NULL) {
       echo <- echo %||% private$echo_mode
-      coro::collect(private$run(pi_user_turn(...), echo = echo))
+      collect(private$run(pi_user_turn(...), echo = echo))
       text <- self$last_turn()@text
       if (echo == "none") text else invisible(text)
     },
-    stream = function(..., type = NULL, stream = c("text", "content"),
-                      controller = NULL) {
-      stream <- match.arg(stream)
-      private$run(pi_user_turn(...),
-        type = type,
-        content = stream == "content", controller = controller
-      )
-    },
+    # Block ellmer's inherited method; chat() already streams to the console.
+    stream = NULL,
     chat_async = function(..., tool_mode = c("concurrent", "sequential")) {
       match.arg(tool_mode)
-      done <- coro::async_collect(private$run(pi_user_turn(...),
+      done <- async_collect(private$run(pi_user_turn(...),
         async = TRUE,
         echo = private$echo_mode
       ))
-      promises::then(done, function(x) self$last_turn()@text)
+      promises::then(done, \(x) self$last_turn()@text)
     },
     stream_async = function(..., type = NULL,
                             tool_mode = c("concurrent", "sequential"),
@@ -134,17 +92,20 @@ ChatPi <- R6::R6Class(
       )
     },
     chat_structured = function(..., type, echo = "none", convert = TRUE) {
-      coro::collect(private$run(pi_user_turn(...), type = type, echo = echo))
+      collect(private$run(pi_user_turn(...), type = type, echo = echo))
       pi_extract(self$last_turn()@text, type, convert)
     },
     chat_structured_async = function(..., type, echo = "none", convert = TRUE) {
-      done <- coro::async_collect(private$run(
+      done <- async_collect(private$run(
         pi_user_turn(...),
         type = type, echo = echo, async = TRUE
       ))
       promises::then(done, function(x) {
         pi_extract(self$last_turn()@text, type, convert)
       })
+    },
+    get_turns = function(include_system_prompt = FALSE) {
+      structure(super$get_turns(include_system_prompt), class = c("pi_turns", "list"))
     },
     set_turns = function(value) {
       private$assert_idle()
@@ -167,7 +128,7 @@ ChatPi <- R6::R6Class(
     },
     get_cost = function() sum(self$get_tokens()$cost, na.rm = TRUE),
     get_tokens = function(include_system_prompt = FALSE) {
-      turns <- Filter(function(x) x@role == "assistant", self$get_turns())
+      turns <- Filter(\(x) x@role == "assistant", self$get_turns())
       if (!length(turns)) {
         return(data.table::data.table(
           input = numeric(), output = numeric(),
@@ -290,6 +251,11 @@ ChatPi <- R6::R6Class(
 #' [chat_pi()] is a thin alias for [chat_pi_ellmer()]: the same `ChatPi`
 #' object, driven by a `pi` subprocess. See [chat_pi_ellmer()] for the
 #' available methods.
+#'
+#' `$chat("prompt")` prints text as it arrives and invisibly returns the
+#' complete answer, unless `echo = "none"` is used for a silent, visible return.
+#' `$stream()` is disabled. `$stream_async()` remains available for applications
+#' that need an asynchronous generator.
 #'
 #' @param system_prompt Instructions appended to pi's built-in prompt.
 #' @param client A [pi_client()].

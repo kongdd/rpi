@@ -50,9 +50,9 @@ pi_stream_poll <- function(st, wait = FALSE) {
       value <- if (!st$content) {
         ame$delta
       } else if (thinking) {
-        ellmer::ContentThinking(ame$delta)
+        ContentThinking(ame$delta)
       } else {
-        ellmer::ContentText(ame$delta)
+        ContentText(ame$delta)
       }
       values[[length(values) + 1L]] <- value
     } else if (identical(ev$type, "tool_execution_start") && st$echo == "all") {
@@ -78,7 +78,7 @@ pi_stream_check <- function(st) {
 
 pi_stream_iterator <- function(start, cleanup, finish, async) {
   if (!async) {
-    return(coro::generator(function() {
+    return(generator(function() {
       st <- NULL
       on.exit(cleanup(st), add = TRUE)
       st <- start()
@@ -91,10 +91,10 @@ pi_stream_iterator <- function(start, cleanup, finish, async) {
         }
       }
       finish(st)
-      coro::exhausted()
+      exhausted()
     })())
   }
-  coro::async_generator(function() {
+  async_generator(function() {
     st <- NULL
     on.exit(cleanup(st), add = TRUE)
     st <- start()
@@ -108,13 +108,13 @@ pi_stream_iterator <- function(start, cleanup, finish, async) {
       if (pi_running(st$p)) await(pi_sleep())
     }
     finish(st)
-    coro::exhausted()
+    exhausted()
   })()
 }
 
 pi_sleep <- function(seconds = 0.05) {
   promises::promise(function(resolve, reject) {
-    later::later(function() resolve(NULL), seconds)
+    later::later(\() resolve(NULL), seconds)
   })
 }
 

@@ -1,6 +1,6 @@
 pi_user_turn <- function(...) {
   contents <- lapply(list(...), function(x) {
-    if (is.character(x)) ellmer::ContentText(paste(x, collapse = "\n")) else x
+    if (is.character(x)) ContentText(paste(x, collapse = "\n")) else x
   })
   ellmer::UserTurn(contents)
 }
@@ -39,8 +39,8 @@ pi_turn_input <- function(turn) {
 
 pi_block_content <- function(block) {
   switch(block$type,
-    text = ellmer::ContentText(block$text %||% ""),
-    thinking = ellmer::ContentThinking(block$thinking %||% ""),
+    text = ContentText(block$text %||% ""),
+    thinking = ContentThinking(block$thinking %||% ""),
     image = ellmer::ContentImageInline(block$mimeType, block$data),
     toolCall = ellmer::ContentToolRequest(
       id = block$id, name = block$name, arguments = block$arguments,
@@ -75,7 +75,7 @@ pi_message_turns <- function(messages) {
       if (inherits(x, "ellmer::ContentToolRequest")) requests[[x@id]] <<- x
     }
     usage <- msg$usage %||% list()
-    ellmer::AssistantTurn(
+    AssistantTurn(
       contents = contents, json = msg,
       tokens = c(
         input = (usage$input %||% NA_real_) + (usage$cacheWrite %||% 0),
@@ -174,7 +174,7 @@ pi_extract <- function(text, type, convert) {
   }
   parse <- function(simplify) {
     txt <- sub("\\s*```$", "", sub("^```[[:alnum:]]*\\s*", "", trimws(text)))
-    jsonlite::fromJSON(txt, simplifyVector = simplify)
+    fromJSON(txt, simplifyVector = simplify)
   }
   if (!convert) {
     return(parse(FALSE))

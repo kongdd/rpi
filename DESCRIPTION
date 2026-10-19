@@ -1,4 +1,4 @@
-Package: piagent
+Package: rpi
 Title: Chat with the 'Pi' Coding Agent from R
 Version: 0.1.0
 Authors@R:
@@ -15,10 +15,12 @@ Depends:
     R (>= 4.1.0)
 Imports:
     coro,
+    crayon,
     data.table,
     ellmer (>= 0.5.0),
     jsonlite,
     later,
+    magrittr,
     processx,
     promises,
     R6

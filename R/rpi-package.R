@@ -1,4 +1,4 @@
-#' piagent: chat with the pi coding agent from R
+#' rpi: chat with the pi coding agent from R
 #'
 #' An \pkg{ellmer}-style interface to the
 #' [pi](https://github.com/earendil-works/pi) coding agent: [chat_pi()]
@@ -13,10 +13,13 @@
 #' @keywords internal
 #' @importFrom coro async_collect async_generator await collect exhausted
 #' @importFrom coro generator loop yield
+#' @importFrom crayon blue green
 #' @importFrom ellmer AssistantTurn Chat ContentText ContentThinking
 #' @importFrom ellmer Model Provider
-#' @importFrom jsonlite fromJSON
+#' @importFrom jsonlite fromJSON toJSON
 #' @importFrom R6 R6Class
+#' @importFrom data.table data.table rbindlist
+#' @importFrom magrittr %>% %<>%
 "_PACKAGE"
 
 ## usethis namespace: start

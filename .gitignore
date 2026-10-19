@@ -17,3 +17,8 @@ undefined
 
 *Rcheck*
 .lintr
+
+.vscode
+*debug*
+
+*.png

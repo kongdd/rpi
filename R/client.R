@@ -102,8 +102,9 @@ print.pi_client <- function(x, ...) {
 #' Runs `pi --list-models` and parses the table it prints.
 #'
 #' @param client A [pi_client()].
-#' @return A [data.table][data.table::data.table] with one row per model.
+#' @return A [data.table][data.table] with one row per model.
 #' @export
+#' @importFrom data.table as.data.table
 #' @examples
 #' \dontrun{
 #' models_pi()
@@ -117,10 +118,9 @@ models_pi <- function(client = pi_client()) {
   if (!identical(res$status, 0L)) {
     stop("`pi --list-models` failed.\n", res$stderr, call. = FALSE)
   }
-  data.table::as.data.table(
-    utils::read.table(
-      text = res$stdout, header = TRUE, check.names = FALSE,
-      stringsAsFactors = FALSE
-    )
-  )
+
+  utils::read.table(
+    text = res$stdout, header = TRUE, check.names = FALSE,
+    stringsAsFactors = FALSE
+  ) %>% as.data.table()
 }

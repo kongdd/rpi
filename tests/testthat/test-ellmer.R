@@ -127,7 +127,7 @@ test_that("inline and remote image inputs arrive as individual file arguments", 
   expect_false(file.exists(file))
   source <- tempfile(fileext = ".png")
   writeBin(as.raw(c(1, 2, 3)), source)
-  input <- piagent:::pi_turn_input(ellmer::UserTurn(list(
+  input <- rpi:::pi_turn_input(ellmer::UserTurn(list(
     ellmer::ContentImageRemote(paste0("file:///", normalizePath(source, winslash = "/")))
   )))
   expect_identical(readBin(input$files, "raw", 3), as.raw(c(1, 2, 3)))

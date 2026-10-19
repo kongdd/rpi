@@ -21,10 +21,10 @@ events <- list(
 
 test_that("pi_content_text() reads text and thinking blocks", {
   content <- events[[4]]$message$content
-  expect_equal(piagent:::pi_content_text(content), "hello")
-  expect_equal(piagent:::pi_content_text(content, "thinking"), "hmm")
-  expect_equal(piagent:::pi_content_text("plain"), "plain")
-  expect_equal(piagent:::pi_content_text(NULL), "")
+  expect_equal(rpi:::pi_content_text(content), "hello")
+  expect_equal(rpi:::pi_content_text(content, "thinking"), "hmm")
+  expect_equal(rpi:::pi_content_text("plain"), "plain")
+  expect_equal(rpi:::pi_content_text(NULL), "")
 })
 
 test_that("pi_check_events() turns a failed run into an error", {
@@ -32,6 +32,6 @@ test_that("pi_check_events() turns a failed run into an error", {
     role = "assistant", content = list(), stopReason = "error",
     errorMessage = "boom"
   )))
-  expect_error(piagent:::pi_check_events(failed), "boom")
-  expect_silent(piagent:::pi_check_events(events))
+  expect_error(rpi:::pi_check_events(failed), "boom")
+  expect_silent(rpi:::pi_check_events(events))
 })

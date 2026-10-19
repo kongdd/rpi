@@ -18,7 +18,7 @@ test_that("pi_client() records the settings used by every call", {
 
 test_that("pi_cli_args() maps the client onto pi flags", {
   x <- pi_client_test(model = "sonnet", thinking = "low", tools = "read,grep")
-  args <- piagent:::pi_cli_args(x, session_id = "abc", append = c("be terse", ""))
+  args <- rpi:::pi_cli_args(x, session_id = "abc", append = c("be terse", ""))
   expect_equal(args[1:2], c("--mode", "json"))
   expect_equal(flag(args, "--model"), "sonnet")
   expect_equal(flag(args, "--thinking"), "low")
@@ -30,7 +30,7 @@ test_that("pi_cli_args() maps the client onto pi flags", {
 
 test_that("a stateless client never passes a session id", {
   x <- pi_client_test(session = FALSE)
-  args <- piagent:::pi_cli_args(x, session_id = "abc")
+  args <- rpi:::pi_cli_args(x, session_id = "abc")
   expect_true("--no-session" %in% args)
   expect_false("--session-id" %in% args)
 })

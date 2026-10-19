@@ -1,7 +1,7 @@
 test_that("pi histories select the active branch and preserve raw extension records", {
   cl <- pi_client(bin = "pi", dir = ".", session = FALSE)
-  store <- piagent:::pi_history_store(cl)
-  entries <- piagent:::pi_history_read(store$path)
+  store <- rpi:::pi_history_store(cl)
+  entries <- rpi:::pi_history_read(store$path)
   entry <- function(id, parent, text, type = "message") {
     list(
       type = type, id = id, parentId = parent,
@@ -20,9 +20,9 @@ test_that("pi histories select the active branch and preserve raw extension reco
     ))
   }, character(1))
   writeLines(lines, store$path)
-  messages <- piagent:::pi_history_messages(store$path)
+  messages <- rpi:::pi_history_messages(store$path)
   expect_equal(vapply(messages, function(x) x$content, character(1)), c("root", "active"))
-  expect_equal(piagent:::pi_history_read(store$path)[[5]]$data$x, 42)
+  expect_equal(rpi:::pi_history_read(store$path)[[5]]$data$x, 42)
 })
 
 test_that("provider signatures and cache accounting survive conversion", {
@@ -36,9 +36,9 @@ test_that("provider signatures and cache accounting survive conversion", {
       cacheWrite = 50, cost = list(total = 0)
     )
   )
-  turn <- piagent:::pi_message_turns(list(msg))[[1]]
+  turn <- rpi:::pi_message_turns(list(msg))[[1]]
   expect_equal(turn@tokens, c(input = 60, output = 3, cached_input = 100))
-  expect_identical(piagent:::pi_turn_message(turn), msg)
+  expect_identical(rpi:::pi_turn_message(turn), msg)
 })
 
 test_that("pre-cancelled controllers never launch pi", {
@@ -72,6 +72,53 @@ test_that("all echo includes tool progress and defaults echo live text", {
   expect_match(paste(out, collapse = " "), "\\[tool\\] read")
   chat <- chat_pi_ellmer(client = fake_pi_client())
   expect_match(paste(capture.output(chat$chat("hi")), collapse = " "), "Hello from pi")
+})
+
+test_that("tool progress is green without coloring the answer", {
+  old <- options(crayon.enabled = TRUE, cli.num_colors = 8L)
+  on.exit(options(old), add = TRUE)
+  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_TOOLS = "1")))
+  on.exit(chat$close(), add = TRUE)
+  out <- capture.output(chat$chat("hi", echo = "all"))
+  tool <- grep("\\[tool\\]", out, value = TRUE)
+  expect_match(tool, "\033[32m", fixed = TRUE)
+  expect_match(crayon::strip_style(tool), "\\[tool\\] read:.*R/a.R")
+  expect_false(crayon::has_style(tail(out, 1)))
+})
+
+test_that("thinking is blue only with all echo", {
+  old <- options(crayon.enabled = TRUE, cli.num_colors = 8L)
+  on.exit(options(old), add = TRUE)
+  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
+  on.exit(chat$close(), add = TRUE)
+  out <- capture.output(answer <- chat$chat("hi", echo = "all"))
+  expect_match(
+    paste(out, collapse = "\n"),
+    paste0(crayon::blue("Let me think"), "\nHello from pi"), fixed = TRUE
+  )
+  expect_identical(answer, "Hello from pi")
+  out <- capture.output(chat$chat("hi", echo = "text"))
+  expect_identical(out, "Hello from pi")
+})
+
+test_that("thinking chunks stay joined with one newline before answer chunks", {
+  st <- rpi:::pi_stream_state(NULL, "all", FALSE, Inf)
+  types <- c("thinking_delta", "thinking_delta", "text_delta", "text_delta")
+  deltas <- c("Let ", "me think", "Hello", " world")
+  index <- 0L
+  st$p <- list(
+    read_output_lines = function() {
+      index <<- index + 1L
+      jsonlite::toJSON(list(
+        type = "message_update",
+        assistantMessageEvent = list(type = types[index], delta = deltas[index])
+      ), auto_unbox = TRUE)
+    },
+    read_error_lines = function() character()
+  )
+  out <- capture.output(for (i in seq_along(deltas)) rpi:::pi_stream_poll(st))
+  expect_identical(crayon::strip_style(out), c("Let me think", "Hello world"))
+  expect_identical(st$text, "Hello world")
 })
 
 test_that("empty token tables and explicitly added turns remain usable", {

@@ -91,6 +91,9 @@ if (identical(Sys.getenv("FAKE_PI_THINKING"), "1")) {
   emit(list(type = "message_update", assistantMessageEvent = list(
     type = "thinking_delta", delta = "Let me think"
   )))
+  emit(list(type = "message_update", assistantMessageEvent = list(
+    type = "thinking_end", content = "Let me think"
+  )))
 }
 emit(list(type = "message_update", assistantMessageEvent = list(
   type = "text_delta", delta = text

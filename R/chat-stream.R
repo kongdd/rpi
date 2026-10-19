@@ -8,10 +8,20 @@ pi_stream_state <- function(controller, echo, content, timeout) {
   st$events <- list()
   st$stderr <- character()
   st$text <- ""
+  st$thinking <- FALSE
+  st$line_start <- TRUE
   st$cancelled <- FALSE
   st$files <- character()
   st$p <- NULL
   st
+}
+
+pi_stream_newline <- function(st) {
+  if (!st$line_start) {
+    cat("\n")
+    utils::flush.console()
+  }
+  st$line_start <- TRUE
 }
 
 pi_stream_stop <- function(st) {
@@ -38,12 +48,20 @@ pi_stream_poll <- function(st, wait = FALSE) {
     st$events[[length(st$events) + 1L]] <- ev
     if (identical(ev$type, "message_update")) {
       ame <- ev$assistantMessageEvent
+      if (identical(ame$type, "thinking_end") && st$thinking) {
+        pi_stream_newline(st)
+        st$thinking <- FALSE
+      }
       thinking <- identical(ame$type, "thinking_delta")
       text <- identical(ame$type, "text_delta")
       if (!thinking && !text) next
       if (text) st$text <- paste0(st$text, ame$delta)
-      if ((text && st$echo != "none") || (thinking && st$echo == "all")) {
-        cat(ame$delta, sep = "")
+      if (nzchar(ame$delta) &&
+          ((text && st$echo != "none") || (thinking && st$echo == "all"))) {
+        if (text && st$thinking) pi_stream_newline(st)
+        cat(if (thinking) blue(ame$delta) else ame$delta, sep = "")
+        st$thinking <- thinking
+        st$line_start <- endsWith(ame$delta, "\n")
         utils::flush.console()
       }
       if (!text && !st$content) next
@@ -56,7 +74,11 @@ pi_stream_poll <- function(st, wait = FALSE) {
       }
       values[[length(values) + 1L]] <- value
     } else if (identical(ev$type, "tool_execution_start") && st$echo == "all") {
-      cat("\n[tool] ", ev$toolName, ": ", pi_short(ev$args), "\n", sep = "")
+      label <- green("[tool] ", ev$toolName, ": ", pi_short(ev$args), sep = "")
+      pi_stream_newline(st)
+      cat(label, "\n", sep = "")
+      st$thinking <- FALSE
+      st$line_start <- TRUE
       utils::flush.console()
     }
   }

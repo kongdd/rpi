@@ -19,6 +19,15 @@ importFrom(coro,
   loop,
   yield
 )
+importFrom(crayon,
+  blue,
+  green
+)
+importFrom(data.table,
+  as.data.table,
+  data.table,
+  rbindlist
+)
 importFrom(ellmer,
   AssistantTurn,
   Chat,
@@ -27,4 +36,11 @@ importFrom(ellmer,
   Model,
   Provider
 )
-importFrom(jsonlite,fromJSON)
+importFrom(jsonlite,
+  fromJSON,
+  toJSON
+)
+importFrom(magrittr,
+  "%<>%",
+  "%>%"
+)

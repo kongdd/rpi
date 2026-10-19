@@ -130,13 +130,13 @@ ChatPi <- R6Class(
     get_tokens = function(include_system_prompt = FALSE) {
       turns <- Filter(\(x) x@role == "assistant", self$get_turns())
       if (!length(turns)) {
-        return(data.table::data.table(
+        return(data.table(
           input = numeric(), output = numeric(),
           cached_input = numeric(), cost = numeric()
         ))
       }
       data.table::rbindlist(lapply(turns, function(x) {
-        data.table::data.table(
+        data.table(
           input = x@tokens[[1]], output = x@tokens[[2]],
           cached_input = x@tokens[[3]], cost = x@cost
         )
@@ -239,7 +239,7 @@ ChatPi <- R6Class(
         } else {
           private$sync()
         }
-        if (echo != "none") cat("\n")
+        if (echo != "none") pi_stream_newline(st)
       }
       pi_stream_iterator(start, cleanup, finish, async)
     }

@@ -1,142 +1,58 @@
-# piagent
+# rpi
 
-<!-- badges: start -->
-<!-- badges: end -->
+**在 R 中调用 [pi](https://github.com/earendil-works/pi) 编码代理，让 AI 参与项目，而不只是回答问题。**
 
-`piagent` 把 [pi](https://github.com/earendil-works/pi) 编码代理接入 R，接口风格对齐
-[ellmer](https://ellmer.tidyverse.org)：先用 `pi_client()` 描述"怎么启动 pi"，
-再用 `chat_pi()` 建立一次会话。
+## 为什么开发这个包
 
-与直接调用大模型 API 的 ellmer 不同，pi 是一个带工具的代理进程：它能读文件、跑 shell、
-改代码。`piagent` 把每一轮对话交给 `pi` 执行，并解析其 JSON 事件流，返回最终回答、
-完整事件、token 与费用统计。
+R 用户的许多任务，需要的不只是一段回答。理解一个陌生项目、排查代码问题、补充测试，
+往往要先查看目录、读取多个文件，再根据结果继续操作。手动复制代码给模型、把回答搬回项目，
+很难形成可重复调用的工作流程。
 
-## 安装
+pi 已经提供了读文件、执行命令、修改代码和管理会话的能力；
+[ellmer](https://ellmer.tidyverse.org) 则提供了熟悉的 R 对话接口。
+没有必要在 R 中重写一套代理系统。
+
+开发 `rpi`，就是为了连接两者：**让 R 组织任务，让 pi 调用工具完成任务，结果再回到 R。**
+
+## 它带来什么
+
+- **留在 R 工作流中。** 从 R 控制台或脚本发起任务，继续追问，接着处理返回结果，
+  不必反复在脚本与终端之间搬运信息。
+- **复用已有的 pi 环境。** 沿用模型、工具和登录配置。对于 pi 支持的订阅/OAuth 模型，
+  无需在 R 中另配 API key；具体可用范围取决于服务商和账号权限。
+- **看得见执行过程。** 不只保留最终回答，也能查看工具调用、返回内容和模型用量，
+  判断代理做了什么、上下文为何增长。
+
+例如，你可以让它阅读一个 R 包并解释代码结构，定位需要补充测试的函数，
+或在多轮对话中协助整理文档。任务由 R 发起，项目内容由 pi 按需读取。
+
+## 从一个项目开始
+
+先安装并配置 pi，确保终端中的 `pi` 可以正常工作，再安装 R 包：
 
 ```r
-# 需要 PATH 上可执行 `pi`（Windows: pi.exe）
-pak::pak("rpkgs/piagent")
+pak::pak("kongdd/rpi")
 ```
 
-## 基本用法
-
 ```r
-library(piagent)
+library(rpi)
 
 chat <- chat_pi(
-  system_prompt = "回答尽量简短。",
-  client = pi_client(dir = "~/projects/demo", model = "sonnet", thinking = "low")
+  client = pi_client(dir = "~/projects/demo") # 替换为你的项目目录
 )
+chat$chat("说明本项目的用途和主要代码结构，不要修改文件。")
+chat$chat("哪些函数最需要补充测试？请说明原因。")
 
-chat$chat("这个包里哪些函数没有被引用？")
-chat$get_turns()     # Turn 对象列表：文本、token、费用
-chat$get_cost()      # 累计费用（美元）
+summary(chat$get_turns()) # 查看对话、工具记录和模型用量
 ```
 
-`pi` 的会话保存在磁盘上，同一 chat 的后续调用沿用历史；
-`chat_pi()` 等价于 `chat_pi_ellmer()`。详见下节。
+## 定位与边界
 
-## 流式与异步
+`rpi` 是 R 与 pi 之间的桥梁，不是新的模型服务，也不附带模型额度。
+如果只需要直接调用模型，ellmer 通常就够了；如果希望从 R 驱动已有的 pi 代理，
+这才是 `rpi` 要解决的问题。
 
-```r
-text <- chat$chat("总结 DESCRIPTION")      # 实时打印，并返回完整文本
-chat$chat("总结 DESCRIPTION", echo = "all") # 同时打印思考与工具调用
+代理能够执行命令、修改文件，请在受控目录中使用，并审查代码变更。
 
-promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
-```
-
-统一使用 `$chat()` 实时输出，`$stream()` 已移除。
-`$stream_async()` 仅供需要异步逐块处理的程序使用。
-
-## 作为 ellmer 的 Chat 使用
-
-对于 pi 支持的订阅/OAuth provider，登录 pi 后即可使用，无需另配 API key。
-`chat_pi_ellmer()` 继承 `ellmer::Chat`，常用对话接口直接驱动 pi 的模型、工具与扩展：
-
-```r
-chat <- chat_pi_ellmer(model = "sonnet")   # 继承 ellmer::Chat
-chat$chat("总结 DESCRIPTION")
-chat$get_tokens()                          # ellmer 的 token / cost 表示
-chat$chat_async("列出 R/ 里的函数")
-```
-
-`$get_turns()` 从 pi 会话的当前分支读取消息，包含工具请求与结果；
-`$set_turns()` 会建立包含替换历史的新会话，下一次请求真实使用该历史，原文件不变。
-`$get_events()` 可查看原始会话记录（包括系统、扩展、压缩信息）。恢复已有会话用
-`session_id`，临时会话用 `pi_client(session = FALSE)`，结束后 `$close()` 清理临时文件。
-同一会话不要同时由多个进程写入。
-
-```r
-chat$chat_structured("提取包名", type = ellmer::type_string())
-chat$chat("描述图片", ellmer::content_image_file("plot.png", resize = "none"))
-```
-
-结构化输出通过提示词约束 JSON，并复用 ellmer 的类型转换，不是 provider 的强制 schema。
-图片可直接传入；PDF 等其他附件请交给 pi 的 `@file` 与工具处理。
-`$register_tool()` 明确报错：工具仍通过 `pi_client(tools = )` 或 pi extension 配置。
-
-## 仅复用 pi 授权，直接调用 ellmer
-
-`chat_codex()` 读取 pi 的 Codex OAuth 授权，由 ellmer 直接发送 HTTP 请求，
-**不启动 pi，也不使用 pi 的工具或会话**，可以注册 R 工具：
-
-```r
-chat <- chat_codex(model = "gpt-6-luna", system_prompt = "回答简短。")
-chat$chat("你好")
-chat$register_tool(ellmer::tool(
-  function(x, y) x + y, "两数相加",
-  arguments = list(x = ellmer::type_number(), y = ellmer::type_number()), name = "add"
-))
-```
-
-授权默认来自 `~/.pi/agent/auth.json`，也遵循 `PI_CODING_AGENT_DIR`。
-文件只读，每次请求重新读取；过期时需在 pi 中刷新或重新登录。
-仅支持 `openai-codex` OAuth；模型需在账号权限内，参数需符合 Codex 接口限制。
-不支持 OpenAI 的文件上传及批处理接口。
-
-## 客户端配置
-
-`pi_client()` 覆盖 `pi` 的命令行开关：
-
-```r
-pi_client(
-  dir = ".",                          # 代理的工作目录
-  model = "sonnet",                   # 模型或 provider/model:thinking
-  thinking = "high",                  # 思考等级
-  tools = "read,grep,find,ls",        # 工具白名单
-  exclude_tools = "write,bash",
-  append_system_prompt = "用中文回答",
-  session = FALSE,                    # 不落盘，每次调用相互独立
-  args = "-a",                        # 传给 pi 的其它参数
-  timeout = 600                       # 单次调用超时（秒）
-)
-```
-
-`system_prompt`（替换内置提示，会同时丢掉工具说明，慎用）与
-`append_system_prompt`（追加指令）的区别，见 `?pi_client`。
-
-## 事件与 token
-
-```r
-events <- chat$get_events()   # pi JSON 事件流的原始列表
-chat$get_tokens()             # input / output / cached_input / cost
-```
-
-`chat$get_command()` 打印下一次调用实际使用的命令行，便于排查问题。
-
-## 与 ellmer 的对应关系
-
-| ellmer            | piagent            |
-| ----------------- | ------------------ |
-| `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_codex()` |
-| `Provider`        | `pi_client()`      |
-| `$chat()`         | `$chat()`（阻塞，同时流式打印） |
-| `$stream()`       | —（控制台输出用 `$chat()`） |
-| `$chat_async()`   | `$chat_async()`    |
-| `$get_turns()`    | `$get_turns()`     |
-| `$get_tokens()`   | `$get_tokens()`    |
-| `$register_tool()` | —（工具由 `pi_client(tools = )` 选择） |
-
-## License
-
-GPL-3
+客户端配置、异步调用、会话管理及直接复用 Codex 授权等详细用法，见
+[使用说明](docs/usage.md)；可运行示例见 [inst/examples](inst/examples)。

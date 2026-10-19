@@ -1,4 +1,4 @@
 library(testthat)
-library(piagent)
+library(rpi)
 
-test_check("piagent")
+test_check("rpi")

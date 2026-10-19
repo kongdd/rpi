@@ -32,8 +32,7 @@ chat$get_turns()     # Turn 对象列表：文本、token、费用
 chat$get_cost()      # 累计费用（美元）
 ```
 
-`pi` 的会话保存在磁盘上，同一 chat 的后续调用沿用历史；
-`chat_pi()` 等价于 `chat_pi_ellmer()`。详见下节。
+`pi` 的会话保存在磁盘上，同一 chat 的后续调用沿用历史。
 
 ## 流式与异步
 
@@ -50,10 +49,10 @@ promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 ## 作为 ellmer 的 Chat 使用
 
 对于 pi 支持的订阅/OAuth provider，登录 pi 后即可使用，无需另配 API key。
-`chat_pi_ellmer()` 继承 `ellmer::Chat`，常用对话接口直接驱动 pi 的模型、工具与扩展：
+`chat_pi()` 继承 `ellmer::Chat`，常用对话接口直接驱动 pi 的模型、工具与扩展：
 
 ```r
-chat <- chat_pi_ellmer(model = "sonnet")   # 继承 ellmer::Chat
+chat <- chat_pi(client = pi_client(model = "sonnet"))  # 继承 ellmer::Chat
 chat$chat("总结 DESCRIPTION")
 chat$get_tokens()                          # ellmer 的 token / cost 表示
 chat$chat_async("列出 R/ 里的函数")
@@ -88,7 +87,7 @@ chat$register_tool(ellmer::tool(
 ))
 ```
 
-授权默认来自 `~/.pi/agent/auth.json`，也遵循 `PI_CODING_AGENT_DIR`。
+授权固定读取 `~/.pi/agent/auth.json`，与 pi 的路径保持一致。
 文件只读，每次请求重新读取；过期时需在 pi 中刷新或重新登录。
 仅支持 `openai-codex` OAuth；模型需在账号权限内，参数需符合 Codex 接口限制。
 不支持 OpenAI 的文件上传及批处理接口。
@@ -127,7 +126,7 @@ chat$get_tokens()             # input / output / cached_input / cost
 
 | ellmer            | rpi            |
 | ----------------- | ------------------ |
-| `chat_openai()`   | `chat_pi()` / `chat_pi_ellmer()`、`chat_codex()` |
+| `chat_openai()`   | `chat_pi()`、`chat_codex()` |
 | `Provider`        | `pi_client()`      |
 | `$chat()`         | `$chat()`（阻塞，同时流式打印） |
 | `$stream()`       | —（控制台输出用 `$chat()`） |

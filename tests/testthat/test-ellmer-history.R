@@ -43,7 +43,7 @@ test_that("provider signatures and cache accounting survive conversion", {
 
 test_that("pre-cancelled controllers never launch pi", {
   capture <- tempfile(fileext = ".rds")
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_CAPTURE = capture)))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_CAPTURE = capture)))
   controller <- ellmer::stream_controller()
   controller$cancel()
   pi_sync(coro::async_collect(chat$stream_async("hi", controller = controller)))
@@ -53,7 +53,7 @@ test_that("pre-cancelled controllers never launch pi", {
 })
 
 test_that("a rejected concurrent request does not release the running request", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_PAUSE = "5")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_PAUSE = "5")))
   controller <- ellmer::stream_controller()
   iterator <- chat$stream_async("hi", controller = controller)
   expect_equal(pi_sync(iterator()), "Hello from pi")
@@ -67,29 +67,30 @@ test_that("a rejected concurrent request does not release the running request", 
 })
 
 test_that("all echo includes tool progress and defaults echo live text", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_TOOLS = "1")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_TOOLS = "1")))
   out <- capture.output(chat$chat("hi", echo = "all"))
   expect_match(paste(out, collapse = " "), "\\[tool\\] read")
-  chat <- chat_pi_ellmer(client = fake_pi_client())
+  chat <- chat_pi(client = fake_pi_client())
   expect_match(paste(capture.output(chat$chat("hi")), collapse = " "), "Hello from pi")
 })
 
 test_that("tool progress is green without coloring the answer", {
   old <- options(crayon.enabled = TRUE, cli.num_colors = 8L)
   on.exit(options(old), add = TRUE)
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_TOOLS = "1")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_TOOLS = "1")))
   on.exit(chat$close(), add = TRUE)
   out <- capture.output(chat$chat("hi", echo = "all"))
   tool <- grep("\\[tool\\]", out, value = TRUE)
   expect_match(tool, "\033[32m", fixed = TRUE)
   expect_match(crayon::strip_style(tool), "\\[tool\\] read:.*R/a.R")
-  expect_false(crayon::has_style(tail(out, 1)))
+  expect_false(crayon::has_style(out[[length(out) - 1L]]))
+  expect_true(crayon::has_style(tail(out, 1)))
 })
 
 test_that("thinking is blue only with all echo", {
   old <- options(crayon.enabled = TRUE, cli.num_colors = 8L)
   on.exit(options(old), add = TRUE)
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
   on.exit(chat$close(), add = TRUE)
   out <- capture.output(answer <- chat$chat("hi", echo = "all"))
   expect_match(
@@ -98,7 +99,8 @@ test_that("thinking is blue only with all echo", {
   )
   expect_identical(answer, "Hello from pi")
   out <- capture.output(chat$chat("hi", echo = "text"))
-  expect_identical(out, "Hello from pi")
+  status <- capture.output(show_status(chat$get_turns()))
+  expect_identical(tail(out, 2L), c("Hello from pi", status))
 })
 
 test_that("thinking chunks stay joined with one newline before answer chunks", {
@@ -122,7 +124,7 @@ test_that("thinking chunks stay joined with one newline before answer chunks", {
 })
 
 test_that("empty token tables and explicitly added turns remain usable", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(), echo = "none")
+  chat <- chat_pi(client = fake_pi_client(), echo = "none")
   expect_named(chat$get_tokens(), c("input", "output", "cached_input", "cost"))
   chat$add_turn(ellmer::UserTurn("remember"), ellmer::AssistantTurn("yes"))
   chat$chat("hi")
@@ -130,7 +132,7 @@ test_that("empty token tables and explicitly added turns remain usable", {
 })
 
 test_that("an ephemeral chat cleans up its session file", {
-  chat <- chat_pi_ellmer(client = fake_pi_client())
+  chat <- chat_pi(client = fake_pi_client())
   entries <- chat$get_events()
   expect_equal(entries[[1]]$version, 3L)
   chat$close()

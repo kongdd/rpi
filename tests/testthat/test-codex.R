@@ -24,7 +24,8 @@ test_that("Codex reuses OAuth headers without modifying authorization", {
   path <- codex_auth_fixture()
   on.exit(unlink(path))
   before <- readBin(path, "raw", file.info(path)$size)
-  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
+  testthat::local_mocked_bindings(pi_auth_file = function() path, .package = "rpi")
+  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.")
   expect_s3_class(chat, "Chat")
   provider <- chat$get_provider()
   expect_equal(provider@base_url, "https://chatgpt.com/backend-api/codex")
@@ -55,18 +56,8 @@ test_that("missing, invalid and expired credentials fail without leaking secrets
   expect_error(pi_codex_credentials(path), "No Codex OAuth")
 })
 
-test_that("pi's agent directory is used automatically", {
-  old <- Sys.getenv("PI_CODING_AGENT_DIR", unset = NA_character_)
-  on.exit(if (is.na(old)) {
-    Sys.unsetenv("PI_CODING_AGENT_DIR")
-  } else {
-    Sys.setenv(PI_CODING_AGENT_DIR = old)
-  })
-  Sys.setenv(PI_CODING_AGENT_DIR = tempdir())
-  expect_equal(pi_auth_file(), file.path(tempdir(), "auth.json"))
-  Sys.unsetenv("PI_CODING_AGENT_DIR")
-  home <- if (.Platform$OS.type == "windows") Sys.getenv("USERPROFILE") else path.expand("~")
-  expect_equal(pi_auth_file(), file.path(home, ".pi", "agent", "auth.json"))
+test_that("pi's authorization path is fixed", {
+  expect_equal(pi_auth_file(), path.expand("~/.pi/agent/auth.json"))
 })
 
 test_that("silent and async chats force SSE while keeping ellmer history and usage", {
@@ -77,6 +68,7 @@ test_that("silent and async chats force SSE while keeping ellmer history and usa
     requests[[length(requests) + 1L]] <<- req
     codex_events()
   }
+  testthat::local_mocked_bindings(pi_auth_file = function() path, .package = "rpi")
   testthat::local_mocked_bindings(
     chat_perform_stream = function(provider, req, ...) {
       events <- capture(req)
@@ -88,7 +80,7 @@ test_that("silent and async chats force SSE while keeping ellmer history and usa
     },
     .package = "ellmer"
   )
-  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.", auth_file = path)
+  chat <- chat_codex(model = "test-codex", system_prompt = "Be terse.")
   expect_equal(as.character(chat$chat("hello")), "OK")
   expect_equal(as.character(pi_sync(chat$chat_async("again"))), "OK")
   expect_null(chat$stream)

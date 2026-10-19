@@ -28,6 +28,12 @@ test_that("pi_cli_args() maps the client onto pi flags", {
   expect_equal(flag(args, "--append-system-prompt"), "be terse")
 })
 
+test_that("models_pi can limit results to a selected model", {
+  models <- models_pi(fake_pi_client(), "fake/fake-model")
+  expect_equal(nrow(models), 1L)
+  expect_equal(models$context, "272K")
+})
+
 test_that("a stateless client never passes a session id", {
   x <- pi_client_test(session = FALSE)
   args <- rpi:::pi_cli_args(x, session_id = "abc")

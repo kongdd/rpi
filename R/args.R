@@ -9,14 +9,14 @@ pi_cli_args <- function(client, session_id = NULL, model = NULL,
                         append = character()) {
   c(
     "--mode", "json",
-    pi_arg("--model", model %||% client$model),
-    pi_arg("--provider", client$provider),
-    pi_arg("--thinking", client$thinking),
-    pi_arg("--tools", client$tools),
-    pi_arg("--exclude-tools", client$exclude_tools),
-    pi_arg("--system-prompt", client$system_prompt),
-    pi_arg_rep("--append-system-prompt", append),
-    pi_arg("--session-dir", client$session_dir),
+    arg("--model", model %||% client$model),
+    arg("--provider", client$provider),
+    arg("--thinking", client$thinking),
+    arg("--tools", client$tools),
+    arg("--exclude-tools", client$exclude_tools),
+    arg("--system-prompt", client$system_prompt),
+    arg_multi("--append-system-prompt", append),
+    arg("--session-dir", client$session_dir),
     if (client$session && !is.null(session_id)) {
       c("--session-id", session_id)
     } else {
@@ -24,21 +24,6 @@ pi_cli_args <- function(client, session_id = NULL, model = NULL,
     },
     client$args
   )
-}
-
-pi_arg <- function(flag, value) {
-  if (is.null(value) || length(value) == 0) {
-    return(NULL)
-  }
-  c(flag, as.character(value))
-}
-
-pi_arg_rep <- function(flag, values) {
-  values <- values[!is.na(values) & nzchar(values)]
-  if (length(values) == 0) {
-    return(NULL)
-  }
-  as.vector(rbind(flag, values))
 }
 
 #' start with `@` therefore leave the prompt text, and the remaining text is

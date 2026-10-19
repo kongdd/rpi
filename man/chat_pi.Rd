@@ -2,7 +2,7 @@
 % Please edit documentation in R/chat_pi.R
 \name{chat_pi}
 \alias{chat_pi}
-\title{Chat with the pi coding agent}
+\title{Chat with pi through the ellmer interface}
 \usage{
 chat_pi(
   system_prompt = NULL,
@@ -24,20 +24,30 @@ chat_pi(
 A \code{ChatPi}, inheriting from \code{ellmer::Chat}.
 }
 \description{
-\code{\link[=chat_pi]{chat_pi()}} is a thin alias for \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}}: the same \code{ChatPi}
-object, driven by a \code{pi} subprocess. See \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}} for the
-available methods.
+\code{ChatPi} inherits from \link[ellmer:Chat]{ellmer::Chat}, but runs pi instead of calling an
+HTTP API. Authentication, tools and extensions are managed by pi.
 }
 \details{
-\verb{$chat("prompt")} prints text as it arrives and invisibly returns the
-complete answer, unless \code{echo = "none"} is used for a silent, visible return.
-\verb{$stream()} is disabled. \verb{$stream_async()} remains available for applications
-that need an asynchronous generator.
+History is read from the active branch of the pi session, including tool
+requests and results. \verb{$set_turns()} forks a new session containing the
+supplied history; the original file is never overwritten. Compaction and
+extension metadata remain available through \verb{$get_events()}.
+
+Structured output uses prompt instructions, not provider-enforced schemas.
+Inline and remote images are supported. Other attachments should be passed
+as \verb{@file} references for pi tools to read. R tools are not supported.
+With \code{client$session = FALSE}, temporary session files are removed by
+\verb{$close()} (or garbage collection).
+
+\verb{$chat()} prints text as it arrives and invisibly returns the answer, unless
+\code{echo = "none"} is used. \verb{$stream()} is disabled; \verb{$stream_async()} remains
+available for asynchronous processing.
 }
 \examples{
 \dontrun{
-chat <- chat_pi("Answer briefly.")
-chat$chat("Which functions in R/ are unused?")
+chat <- chat_pi(client = pi_client(model = "sonnet"))
+chat$chat("Summarise DESCRIPTION")
+chat$get_turns()
 chat$get_tokens()
 }
 }

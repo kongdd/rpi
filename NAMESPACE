@@ -2,12 +2,13 @@
 
 S3method(print,pi_client)
 S3method(print,pi_turns)
+S3method(summary,Chat)
 S3method(summary,pi_turns)
 export(chat_codex)
 export(chat_pi)
-export(chat_pi_ellmer)
 export(models_pi)
 export(pi_client)
+export(show_status)
 importFrom(R6,R6Class)
 importFrom(coro,
   async_collect,

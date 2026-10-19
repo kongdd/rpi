@@ -71,13 +71,14 @@ test_that("hidden thinking and tools do not introduce newlines", {
 })
 
 test_that("finishing a chat does not add a blank line after an existing newline", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(
+  chat <- chat_pi(client = fake_pi_client(env = c(
     FAKE_PI_TOOLS = "1", FAKE_PI_THINKING = "1", FAKE_PI_JSON = "Answer\n"
   )))
   on.exit(chat$close())
   out <- capture.output(answer <- chat$chat("hi", echo = "all"))
+  status <- capture.output(show_status(chat$get_turns()))
   expect_identical(crayon::strip_style(out), c(
-    '[tool] read: {"path":"R/a.R"}', "Let me think", "Answer"
+    '[tool] read: {"path":"R/a.R"}', "Let me think", "Answer", status
   ))
   expect_identical(answer, "Answer\n")
 })

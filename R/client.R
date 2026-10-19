@@ -96,31 +96,3 @@ print.pi_client <- function(x, ...) {
   )
   invisible(x)
 }
-
-#' List the models available to pi
-#'
-#' Runs `pi --list-models` and parses the table it prints.
-#'
-#' @param client A [pi_client()].
-#' @return A [data.table][data.table] with one row per model.
-#' @export
-#' @importFrom data.table as.data.table
-#' @examples
-#' \dontrun{
-#' models_pi()
-#' }
-models_pi <- function(client = pi_client()) {
-  res <- processx::run(
-    client$bin, "--list-models",
-    wd = client$dir, env = client$env,
-    error_on_status = FALSE
-  )
-  if (!identical(res$status, 0L)) {
-    stop("`pi --list-models` failed.\n", res$stderr, call. = FALSE)
-  }
-
-  utils::read.table(
-    text = res$stdout, header = TRUE, check.names = FALSE,
-    stringsAsFactors = FALSE
-  ) %>% as.data.table()
-}

@@ -18,8 +18,4 @@ chat$register_tool(ellmer::tool(
   arguments = list(x = ellmer::type_number(), y = ellmer::type_number()),
   name = "add"
 ))
-
 r = chat$chat("调用 add 计算 17 + 25。")
-strchat$get_tokens()
-# %% 
-

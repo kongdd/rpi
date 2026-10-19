@@ -1,5 +1,10 @@
 # Offline CLI fixture: persists a real v3 session and exposes received context.
 args <- commandArgs(trailingOnly = TRUE)
+if ("--list-models" %in% args) {
+  cat("provider model context max-out thinking images\n")
+  cat("fake fake-model 272K 1K no no\n")
+  quit(save = "no", status = 0)
+}
 flag <- function(name) {
   i <- match(name, args)
   if (!is.na(i)) args[[i + 1L]] else NULL

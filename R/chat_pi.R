@@ -11,28 +11,36 @@
 #' Structured output uses prompt instructions, not provider-enforced schemas.
 #' Inline and remote images are supported. Other attachments should be passed
 #' as `@file` references for pi tools to read. R tools are not supported.
-#' With `client$session = FALSE`, temporary session files are used only within
-#' this R object and removed by `$close()` (or garbage collection).
+#' With `client$session = FALSE`, temporary session files are removed by
+#' `$close()` (or garbage collection).
 #'
-#' @param client A [pi_client()].
-#' @param model Model pattern; `NULL` uses the client or pi default.
+#' `$chat()` prints text as it arrives and invisibly returns the answer, unless
+#' `echo = "none"` is used. `$stream()` is disabled; `$stream_async()` remains
+#' available for asynchronous processing.
+#'
 #' @param system_prompt Instructions appended to pi's built-in prompt.
+#' @param client A [pi_client()].
+#' @param echo `"none"`, `"text"`, `"output"` or `"all"`.
 #' @param session_id A pi session ID to resume, or `NULL` for a new session.
-#' @param echo `"none"`, `"text"`, `"output"` or `"all"`; defaults to live text.
 #' @return A `ChatPi`, inheriting from `ellmer::Chat`.
 #' @export
 #' @examples
 #' \dontrun{
-#' chat <- chat_pi_ellmer()
+#' chat <- chat_pi(client = pi_client(model = "sonnet"))
 #' chat$chat("Summarise DESCRIPTION")
 #' chat$get_turns()
 #' chat$get_tokens()
 #' }
-chat_pi_ellmer <- function(client = pi_client(), model = NULL,
-                           system_prompt = NULL, session_id = NULL,
-                           echo = "text") {
-  ChatPi$new(client, model, system_prompt, session_id, echo)
+chat_pi <- function(system_prompt = NULL, client = pi_client(), echo = NULL,
+                    session_id = NULL) {
+  ChatPi$new(
+    client, NULL, system_prompt, session_id,
+    echo %||% client$echo %||% "text"
+  )
 }
+# nolint end.
+
+
 
 #' @noRd
 # nolint start: object_name_linter, object_usage_linter.
@@ -61,6 +69,8 @@ ChatPi <- R6Class(
         system_prompt = system_prompt, echo = echo
       )
       private$client <- client
+      private$context_model <- model %||% client$model
+      private$context_limit <- ContextLenMax(client, private$context_model)
       private$echo_mode <- match.arg(echo, c("none", "text", "output", "all"))
       private$store <- pi_history_store(client, session_id)
       private$sync()
@@ -105,7 +115,9 @@ ChatPi <- R6Class(
       })
     },
     get_turns = function(include_system_prompt = FALSE) {
-      structure(super$get_turns(include_system_prompt), class = c("pi_turns", "list"))
+      turns <- structure(super$get_turns(include_system_prompt), class = c("pi_turns", "list"))
+      attr(turns, "context_limit") <- private$context_limit
+      turns
     },
     set_turns = function(value) {
       private$assert_idle()
@@ -160,7 +172,9 @@ ChatPi <- R6Class(
     }
   ),
   private = list(
-    client = NULL, store = NULL, echo_mode = NULL, busy = FALSE, closed = FALSE,
+    client = NULL, store = NULL, context_limit = NULL, context_model = NULL,
+    echo_mode = NULL,
+    busy = FALSE, closed = FALSE,
     assert_idle = function() {
       if (private$closed) stop("This chat has been closed.", call. = FALSE)
       if (private$busy) stop("A pi request is already running.", call. = FALSE)
@@ -238,42 +252,21 @@ ChatPi <- R6Class(
           super$set_turns(c(st$turns, list(user, partial)))
         } else {
           private$sync()
+          turns <- Filter(\(turn) inherits(turn, "ellmer::AssistantTurn"), super$get_turns())
+          if (length(turns)) {
+            message <- utils::tail(turns, 1L)[[1]]@json
+            model <- paste(message$provider, message$model, sep = "/")
+            if (!is.null(message$provider) && !is.null(message$model) &&
+                !identical(model, private$context_model)) {
+              private$context_model <- model
+              private$context_limit <- ContextLenMax(private$client, model)
+            }
+          }
         }
-        if (echo != "none") pi_stream_newline(st)
+        pi_stream_newline(st)
+        show_status(self$get_turns())
       }
       pi_stream_iterator(start, cleanup, finish, async)
     }
   )
 )
-
-#' Chat with the pi coding agent
-#'
-#' [chat_pi()] is a thin alias for [chat_pi_ellmer()]: the same `ChatPi`
-#' object, driven by a `pi` subprocess. See [chat_pi_ellmer()] for the
-#' available methods.
-#'
-#' `$chat("prompt")` prints text as it arrives and invisibly returns the
-#' complete answer, unless `echo = "none"` is used for a silent, visible return.
-#' `$stream()` is disabled. `$stream_async()` remains available for applications
-#' that need an asynchronous generator.
-#'
-#' @param system_prompt Instructions appended to pi's built-in prompt.
-#' @param client A [pi_client()].
-#' @param echo `"none"`, `"text"`, `"output"` or `"all"`.
-#' @param session_id A pi session ID to resume, or `NULL` for a new session.
-#' @return A `ChatPi`, inheriting from `ellmer::Chat`.
-#' @export
-#' @examples
-#' \dontrun{
-#' chat <- chat_pi("Answer briefly.")
-#' chat$chat("Which functions in R/ are unused?")
-#' chat$get_tokens()
-#' }
-chat_pi <- function(system_prompt = NULL, client = pi_client(), echo = NULL,
-                    session_id = NULL) {
-  ChatPi$new(
-    client, NULL, system_prompt, session_id,
-    echo %||% client$echo %||% "text"
-  )
-}
-# nolint end.

@@ -1,5 +1,5 @@
 test_that("ChatPi inherits the public Chat API without overriding private generators", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(), echo = "none")
+  chat <- chat_pi(client = fake_pi_client(), echo = "none")
   expect_s3_class(chat, "Chat")
   expect_equal(chat$chat("hi"), "Hello from pi")
   expect_equal(chat$get_tokens()$input, 100)
@@ -12,7 +12,7 @@ test_that("ChatPi inherits the public Chat API without overriding private genera
 })
 
 test_that("chat and asynchronous methods yield only answers", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(), echo = "none")
+  chat <- chat_pi(client = fake_pi_client(), echo = "none")
   expect_equal(chat$chat("hi"), "Hello from pi")
   expect_equal(pi_sync(chat$chat_async("hi")), "Hello from pi")
   chunks <- pi_sync(coro::async_collect(chat$stream_async("hi")))
@@ -21,7 +21,7 @@ test_that("chat and asynchronous methods yield only answers", {
 })
 
 test_that("content streams include thinking even when echo is none", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_THINKING = "1")))
   chunks <- pi_sync(coro::async_collect(chat$stream_async("hi", stream = "content")))
   expect_s7_class(chunks[[1]], ellmer::ContentThinking)
   expect_s7_class(chunks[[2]], ellmer::ContentText)
@@ -29,7 +29,7 @@ test_that("content streams include thinking even when echo is none", {
 })
 
 test_that("the client timeout works in both modes", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(timeout = 0.5, env = c(FAKE_PI_SLEEP = "5")))
+  chat <- chat_pi(client = fake_pi_client(timeout = 0.5, env = c(FAKE_PI_SLEEP = "5")))
   expect_error(chat$chat("hi"), "timeout")
   result <- pi_sync(chat$chat_async("hi"))
   expect_s3_class(result, "error")
@@ -38,7 +38,7 @@ test_that("the client timeout works in both modes", {
 
 test_that("unused streams do not start a process or consume timeout", {
   capture <- tempfile(fileext = ".rds")
-  chat <- chat_pi_ellmer(client = fake_pi_client(timeout = 1, env = c(FAKE_PI_CAPTURE = capture)))
+  chat <- chat_pi(client = fake_pi_client(timeout = 1, env = c(FAKE_PI_CAPTURE = capture)))
   iterator <- chat$stream_async("hi")
   expect_false(file.exists(capture))
   Sys.sleep(1.1)
@@ -49,7 +49,7 @@ test_that("unused streams do not start a process or consume timeout", {
 test_that("tool messages and per-request usage survive round trips", {
   capture <- tempfile(fileext = ".rds")
   cl <- fake_pi_client(env = c(FAKE_PI_TOOLS = "1", FAKE_PI_CAPTURE = capture))
-  chat <- chat_pi_ellmer(client = cl, echo = "none")
+  chat <- chat_pi(client = cl, echo = "none")
   expect_equal(chat$chat("hi"), "Hello from pi")
   turns <- chat$get_turns()
   expect_length(turns, 4)
@@ -72,7 +72,7 @@ test_that("set_turns changes model history and preserves the original session", 
     session = TRUE, session_dir = tempfile(),
     env = c(FAKE_PI_CAPTURE = capture)
   )
-  chat <- chat_pi_ellmer(client = cl, echo = "none")
+  chat <- chat_pi(client = cl, echo = "none")
   chat$chat("old history")
   old_id <- chat$get_session_id()
   old_file <- readRDS(capture)$args
@@ -85,12 +85,12 @@ test_that("set_turns changes model history and preserves the original session", 
   expect_equal(sent[[2]]$message$content[[1]]$text, "new history")
   expect_equal(sent[[3]]$message$content[[1]]$text, "OK")
   expect_identical(readBin(old_file, "raw", file.info(old_file)$size), old_bytes)
-  resumed <- chat_pi_ellmer(client = cl, session_id = chat$get_session_id(), echo = "none")
+  resumed <- chat_pi(client = cl, session_id = chat$get_session_id(), echo = "none")
   expect_equal(length(resumed$get_turns()), length(chat$get_turns()))
 })
 
 test_that("set_turns rolls back invalid content and empty history resets context", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(), echo = "none")
+  chat <- chat_pi(client = fake_pi_client(), echo = "none")
   chat$chat("hi")
   old <- chat$get_turns()
   expect_error(chat$set_turns(list(ellmer::UserTurn(list(
@@ -104,12 +104,12 @@ test_that("set_turns rolls back invalid content and empty history resets context
 })
 
 test_that("structured output handles scalars, objects and asynchronous conversion", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_JSON = "42")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_JSON = "42")))
   expect_equal(chat$chat_structured("hi", type = ellmer::type_integer()), 42L)
   expect_equal(pi_sync(chat$chat_structured_async("hi", type = ellmer::type_integer())), 42L)
   expect_equal(chat$chat_structured("hi", type = ellmer::type_integer(), convert = FALSE), 42)
   expect_equal(chat$chat_structured(type = ellmer::type_integer()), 42L)
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_JSON = '{"answer":42}')))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_JSON = '{"answer":42}')))
   expect_equal(
     chat$chat_structured("hi", type = ellmer::type_object(answer = ellmer::type_integer())),
     list(answer = 42L)
@@ -118,7 +118,7 @@ test_that("structured output handles scalars, objects and asynchronous conversio
 
 test_that("inline and remote image inputs arrive as individual file arguments", {
   capture <- tempfile(fileext = ".rds")
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_CAPTURE = capture)), echo = "none")
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_CAPTURE = capture)), echo = "none")
   image <- ellmer::ContentImageInline("image/png", jsonlite::base64_enc(as.raw(c(1, 2, 3))))
   chat$chat("inspect", image)
   args <- readRDS(capture)$args
@@ -135,7 +135,7 @@ test_that("inline and remote image inputs arrive as individual file arguments", 
 })
 
 test_that("cancellation records a partial turn and does not charge zero tokens", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_PAUSE = "5")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_PAUSE = "5")))
   controller <- ellmer::stream_controller()
   iterator <- chat$stream_async("hi", controller = controller)
   expect_equal(pi_sync(iterator()), "Hello from pi")
@@ -149,7 +149,7 @@ test_that("cancellation records a partial turn and does not charge zero tokens",
 })
 
 test_that("explicit errors, unsupported attachments and R tools are not silently ignored", {
-  chat <- chat_pi_ellmer(client = fake_pi_client(env = c(FAKE_PI_ERROR = "1")))
+  chat <- chat_pi(client = fake_pi_client(env = c(FAKE_PI_ERROR = "1")))
   expect_error(chat$chat("hi"), "boom")
   expect_length(chat$get_turns(), 0)
   expect_error(chat$register_tool(identity), "pi extensions")

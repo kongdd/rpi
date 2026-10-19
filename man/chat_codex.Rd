@@ -8,8 +8,7 @@ chat_codex(
   model,
   system_prompt = NULL,
   params = NULL,
-  echo = c("none", "output", "all"),
-  auth_file = pi_auth_file()
+  echo = c("none", "output", "all")
 )
 }
 \arguments{
@@ -20,17 +19,14 @@ chat_codex(
 \item{params}{Model parameters from \code{\link[ellmer:params]{ellmer::params()}}.}
 
 \item{echo}{\code{"none"}, \code{"output"} or \code{"all"}.}
-
-\item{auth_file}{Path to pi's \code{auth.json}; normally detected automatically.}
 }
 \value{
 An object inheriting from \link[ellmer:Chat]{ellmer::Chat}.
 }
 \description{
-Unlike \code{\link[=chat_pi_ellmer]{chat_pi_ellmer()}}, this uses ellmer's HTTP transport and R tools,
+Unlike \code{\link[=chat_pi]{chat_pi()}}, this uses ellmer's HTTP transport and R tools,
 not a pi subprocess. Log in to \code{openai-codex} in pi first. Credentials are
-read before each request from \code{auth.json} in \code{PI_CODING_AGENT_DIR}, or
-\verb{~/.pi/agent} by default (the Windows user profile is used on Windows).
+read before each request from \verb{~/.pi/agent/auth.json}, the path used by pi.
 }
 \details{
 The authorization file is never modified. Expired credentials must be

@@ -17,12 +17,15 @@
 \item{x}{A list of turns returned by \verb{$get_turns()}.}
 }
 \value{
-A \code{data.table} with one row per turn: role, content type, tool
-names, input/output tokens, cached input tokens, cost in USD, and text.
-Tool results have role \code{"tool"}. Text includes tool calls and results;
+A \code{data.table} with one row per non-tool turn: role, content type,
+tool names, input/output tokens, cached input tokens, cost in USD, and text.
+Tool result rows are omitted. Text includes tool calls;
 thinking is shown only when no other nonempty content is available.
 Unavailable usage is \code{NA}; summarising does not alter the conversation.
 }
 \description{
 Summarise conversation turns as a data.table
+}
+\details{
+Printing turns appends the line returned by \code{show_status()}.
 }

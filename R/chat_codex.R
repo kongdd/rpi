@@ -1,9 +1,8 @@
 #' Chat directly with Codex using pi's saved OAuth credentials
 #'
-#' Unlike [chat_pi_ellmer()], this uses ellmer's HTTP transport and R tools,
+#' Unlike [chat_pi()], this uses ellmer's HTTP transport and R tools,
 #' not a pi subprocess. Log in to `openai-codex` in pi first. Credentials are
-#' read before each request from `auth.json` in `PI_CODING_AGENT_DIR`, or
-#' `~/.pi/agent` by default (the Windows user profile is used on Windows).
+#' read before each request from `~/.pi/agent/auth.json`, the path used by pi.
 #'
 #' The authorization file is never modified. Expired credentials must be
 #' refreshed in pi before retrying. Only Codex OAuth credentials are supported;
@@ -20,7 +19,6 @@
 #' @param model Codex model ID.
 #' @param params Model parameters from [ellmer::params()].
 #' @param echo `"none"`, `"output"` or `"all"`.
-#' @param auth_file Path to pi's `auth.json`; normally detected automatically.
 #' @return An object inheriting from [ellmer::Chat].
 #' @export
 #' @examples
@@ -29,12 +27,11 @@
 #' chat$chat("What is 1 + 1?")
 #' }
 chat_codex <- function(model, system_prompt = NULL, params = NULL,
-                          echo = c("none", "output", "all"),
-                          auth_file = pi_auth_file()) {
+                        echo = c("none", "output", "all")) {
   echo <- match.arg(echo)
   chat <- ellmer::chat_openai(
     base_url = "https://chatgpt.com/backend-api/codex",
-    credentials = \() pi_codex_credentials(auth_file),
+    credentials = \() pi_codex_credentials(pi_auth_file()),
     model = model, params = params, echo = echo,
     api_args = list(
       instructions = "You are a helpful assistant.",
@@ -70,10 +67,7 @@ ChatPiCodex <- R6Class(
   )
 )
 
-pi_auth_file <- function() {
-  dir <- Sys.getenv("PI_CODING_AGENT_DIR", file.path(pi_home(), ".pi", "agent"))
-  file.path(path.expand(dir), "auth.json")
-}
+pi_auth_file <- function() path.expand("~/.pi/agent/auth.json")
 
 pi_codex_credentials <- function(path) {
   fail <- function(message) {

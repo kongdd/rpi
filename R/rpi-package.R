@@ -25,3 +25,13 @@
 ## usethis namespace: start
 ## usethis namespace: end
 NULL
+
+options(tibble.width = 80) # tibble 默认宽度
+
+format_tokens <- function(n) {
+  if (n < 1e3) return(as.character(n))
+  if (n < 1e4) return(sprintf("%.1fk", n / 1e3))
+  if (n < 1e6) return(sprintf("%.0fk", n / 1e3))
+  if (n < 1e7) return(sprintf("%.1fM", n / 1e6))
+  sprintf("%.0fM", n / 1e6)
+}

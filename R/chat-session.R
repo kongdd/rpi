@@ -1,11 +1,4 @@
 # Pi v3 JSONL is the boundary; ellmer's private generator methods are not used.
-pi_home <- function() {
-  if (.Platform$OS.type == "windows") {
-    Sys.getenv("USERPROFILE")
-  } else {
-    path.expand("~")
-  }
-}
 
 pi_history_store <- function(client, id = NULL) {
   store <- new.env(parent = emptyenv())
@@ -14,9 +7,7 @@ pi_history_store <- function(client, id = NULL) {
   if (client$session) {
     dir <- client$session_dir
     if (is.null(dir)) {
-      root <- Sys.getenv(
-        "PI_CODING_AGENT_DIR", file.path(pi_home(), ".pi", "agent")
-      )
+      root <- Sys.getenv("PI_CODING_AGENT_DIR", normalizePath("~/.pi/agent/"))
       key <- gsub("[/\\\\:]", "-", sub("^[/\\\\]", "", client$dir))
       dir <- Sys.getenv(
         "PI_CODING_AGENT_SESSION_DIR",

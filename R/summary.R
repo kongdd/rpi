@@ -2,9 +2,9 @@
 #'
 #' @param object A list of turns returned by `$get_turns()`.
 #' @param ... Unused.
-#' @return A `data.table` with one row per turn: role, content type, tool
-#'   names, input/output tokens, cached input tokens, cost in USD, and text.
-#'   Tool results have role `"tool"`. Text includes tool calls and results;
+#' @return A `data.table` with one row per non-tool turn: role, content type,
+#'   tool names, input/output tokens, cached input tokens, cost in USD, and text.
+#'   Tool result rows are omitted. Text includes tool calls;
 #'   thinking is shown only when no other nonempty content is available.
 #'   Unavailable usage is `NA`; summarising does not alter the conversation.
 #' @export
@@ -16,23 +16,40 @@ summary.pi_turns <- function(object, ...) {
       cost = numeric(), text = character()
     ))
   }
-  rbindlist(lapply(object, function(turn) {
-    blocks <- rbindlist(lapply(turn@contents, pi_summary_block))
-    text <- blocks$text[blocks$type != "thinking" & nzchar(blocks$text)]
-    if (!length(text)) text <- blocks$text[blocks$type == "thinking"]
-    assistant <- inherits(turn, "ellmer::AssistantTurn")
-    tokens <- if (assistant) turn@tokens else rep(NA_real_, 3L)
-    data.table(
-      role = if (any(blocks$type == "tool_result")) "tool" else turn@role,
-      type = paste(unique(blocks$type), collapse = ","),
-      tool = paste(blocks$tool[nzchar(blocks$tool)], collapse = ", "),
-      input = tokens[[1]], output = tokens[[2]], cached_input = tokens[[3]],
-      cost = if (assistant) turn@cost else NA_real_,
-      text = paste(text, collapse = "\n")
-    )
-  }))
+  result <- rbindlist(lapply(object, pi_summary_turn))
+  result[result$role != "tool"]
 }
 
+#' Summarise a chat's token usage
+#'
+#' @param object A chat object with a `$get_turns()` method.
+#' @param ... Unused.
+#' @return A `data.table` summarising the chat turns.
+#' @export
+summary.Chat <- function(object, ...) {
+  turns <- object$get_turns()
+  show_status(turns)
+  summary(turns)
+}
+
+pi_summary_turn <- function(turn) {
+  blocks <- rbindlist(lapply(turn@contents, pi_summary_block))
+  types <- blocks$type
+  text <- blocks$text[types != "thinking" & nzchar(blocks$text)]
+  if (!length(text)) text <- blocks$text[types == "thinking"]
+  assistant <- inherits(turn, "ellmer::AssistantTurn")
+  tokens <- if (assistant) turn@tokens else rep(NA_real_, 3L)
+  data.table(
+    role = if ("tool_result" %in% types) "tool" else turn@role,
+    type = paste(unique(types), collapse = ","),
+    tool = paste(blocks$tool[nzchar(blocks$tool)], collapse = ", "),
+    input = tokens[[1]], output = tokens[[2]], cached_input = tokens[[3]],
+    cost = if (assistant) turn@cost else NA_real_,
+    text = paste(text, collapse = "\n")
+  )
+}
+
+# 每个turn的内容快
 pi_summary_block <- function(x) {
   kind <- sub("^ellmer::Content", "", class(x)[[1]])
   type <- switch(kind,
@@ -61,12 +78,53 @@ pi_summary_block <- function(x) {
   list(type = type, tool = tool, text = text)
 }
 
+#' Format the conversation usage summary
+#'
+#' @param s A `pi_turns` object or its `summary()` table.
+#' @return Prints token totals, cache hit rate, context used/limit, and cost.
+#' @export
+show_status <- function(s) {
+  limit <- attr(s, "context_limit")
+  turns <- if (inherits(s, "pi_turns")) s else NULL
+  if (!is.null(turns)) {
+    s <- summary(turns)
+    if (is.null(limit)) {
+      assistant <- utils::tail(Filter(
+        \(turn) inherits(turn, "ellmer::AssistantTurn"), turns
+      ), 1L)
+      if (length(assistant)) {
+        message <- assistant[[1]]@json
+        if (!is.null(message$provider) && !is.null(message$model)) {
+          model <- paste(message$provider, message$model, sep = "/")
+          limit <- ContextLenMax(pi_client(), model)
+        }
+      }
+    }
+  }
+  columns <- c("input", "output", "cached_input", "cost")
+  totals <- vapply(columns, \(name) sum(s[[name]], na.rm = TRUE), numeric(1))
+  latest <- utils::tail(which(s$role == "assistant"), 1L)
+  prompt <- s$input[latest] + s$cached_input[latest]
+  hit <- if (length(prompt) && is.finite(prompt) && prompt > 0) {
+    sprintf("%.1f%%", 100 * s$cached_input[latest] / prompt)
+  } else "-"
+  used <- if (length(prompt) && is.finite(prompt)) format_tokens(prompt) else "0"
+  limit <- tolower(limit %||% "?")
+  line <- sprintf("↑%s ↓%s R%s CH%s %s/%s $%.3f",
+    format_tokens(totals[["input"]]), format_tokens(totals[["output"]]),
+    format_tokens(totals[["cached_input"]]), hit, used, limit, totals[["cost"]]
+  )
+  cat(green(line), "\n", sep = "")
+}
+
 #' @rdname summary.pi_turns
+#' @details Printing turns appends the line returned by `show_status()`.
 #' @param x A list of turns returned by `$get_turns()`.
 #' @export
 print.pi_turns <- function(x, ...) {
-  print(summary(x), ...)
-  invisible(x)
+  turns <- x
+  data <- summary(turns)
+  print(data, ...)
+  # cat(green(show_status(data)), "\n", sep = "")
+  invisible(turns)
 }
-
-options(tibble.width = 80) # tibble 默认宽度

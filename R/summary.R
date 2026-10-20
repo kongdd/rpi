@@ -28,7 +28,7 @@ summary.pi_turns <- function(object, ...) {
 #' @export
 summary.Chat <- function(object, ...) {
   turns <- object$get_turns()
-  show_status(turns)
+  show_status(turns, label = if (inherits(object, "ChatPi")) object$label)
   summary(turns)
 }
 
@@ -81,9 +81,19 @@ pi_summary_block <- function(x) {
 #' Format the conversation usage summary
 #'
 #' @param s A `pi_turns` object or its `summary()` table.
+#' @param label Optional tag printed before the line, useful to tell apart
+#'   the output of several chats running at the same time.
 #' @return Prints token totals, cache hit rate, context used/limit, and cost.
 #' @export
-show_status <- function(s) {
+show_status <- function(s, label = NULL) {
+  pi_console_write(
+    pi_console_id(), pi_tag(label),
+    paste0(green(pi_status_line(s)), "\n")
+  )
+}
+
+# 状态行文本：解析会话并算出上下文上限
+pi_status_line <- function(s) {
   limit <- attr(s, "context_limit")
   turns <- if (inherits(s, "pi_turns")) s else NULL
   if (!is.null(turns)) {
@@ -110,11 +120,10 @@ show_status <- function(s) {
   } else "-"
   used <- if (length(prompt) && is.finite(prompt)) format_tokens(prompt) else "0"
   limit <- tolower(limit %||% "?")
-  line <- sprintf("↑%s ↓%s R%s CH%s %s/%s $%.3f",
+  sprintf("↑%s ↓%s R%s CH%s %s/%s $%.3f",
     format_tokens(totals[["input"]]), format_tokens(totals[["output"]]),
     format_tokens(totals[["cached_input"]]), hit, used, limit, totals[["cost"]]
   )
-  cat(green(line), "\n", sep = "")
 }
 
 #' @rdname summary.pi_turns
@@ -122,9 +131,6 @@ show_status <- function(s) {
 #' @param x A list of turns returned by `$get_turns()`.
 #' @export
 print.pi_turns <- function(x, ...) {
-  turns <- x
-  data <- summary(turns)
-  print(data, ...)
-  # cat(green(show_status(data)), "\n", sep = "")
-  invisible(turns)
+  print(summary(x), ...)
+  invisible(x)
 }

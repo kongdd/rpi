@@ -46,6 +46,27 @@ promise <- chat$chat_async("统计 R/ 目录的行数")  # 返回 promise
 统一使用 `$chat()` 实时输出，`$stream()` 已移除。
 `$stream_async()` 仅供需要异步逐块处理的程序使用。
 
+### 多个 chat 并发
+
+终端只有一行可写，多个 chat 同时输出时，输出会交错。给每个 chat 一个
+`label`，每行输出前就带上 `[label]` 标签，一眼可辨：
+
+```r
+chats <- lapply(LETTERS[1:3], \(x) chat_pi(client = pi_client(dir = "."), label = x))
+ps <- lapply(chats, \(chat) chat$chat_async("你是什么模型"))
+unlist(collect(ps))
+```
+
+输出形如：
+
+```
+[A] 我是 MiniMax-M3.1-Flash（provider: minimax-cn）。
+[B] 我是 MiniMax-M3.1-Flash（provider: minimax-cn）。
+[A] ↑118 ↓23 R17k CH99.3% 18k/1m $0.000
+```
+
+即使没有 `label`，一个 chat 换人输出时也会自动断行，不会出现半行拼接。
+
 ## 作为 ellmer 的 Chat 使用
 
 对于 pi 支持的订阅/OAuth provider，登录 pi 后即可使用，无需另配 API key。

@@ -68,7 +68,7 @@ pi_check_events <- function(events, stderr = "") {
 pi_start <- function(client, args, prompt, files = character()) {
   file_args <- if (length(files)) paste0("@", files)
   p <- processx::process$new(
-    client$bin, c(args, "--", pi_prompt_args(prompt), file_args),
+    "pi", c(args, "--", pi_prompt_args(prompt), file_args),
     stdin = "|", stdout = "|", stderr = "|",
     wd = client$dir, env = client$env
   )

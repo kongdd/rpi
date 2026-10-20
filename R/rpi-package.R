@@ -11,7 +11,7 @@
 #' ```
 #'
 #' @keywords internal
-#' @importFrom coro async_collect async_generator await collect exhausted
+#' @importFrom coro async_collect async_generator await exhausted
 #' @importFrom coro generator loop yield
 #' @importFrom crayon blue green
 #' @importFrom ellmer AssistantTurn Chat ContentText ContentThinking
@@ -26,8 +26,6 @@
 ## usethis namespace: end
 NULL
 
-options(tibble.width = 80) # tibble 默认宽度
-
 format_tokens <- function(n) {
   if (n < 1e3) return(as.character(n))
   if (n < 1e4) return(sprintf("%.1fk", n / 1e3))
@@ -35,3 +33,5 @@ format_tokens <- function(n) {
   if (n < 1e7) return(sprintf("%.1fM", n / 1e6))
   sprintf("%.0fM", n / 1e6)
 }
+
+options(tibble.width = 80) # tibble 默认宽度, for print functions

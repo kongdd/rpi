@@ -1,7 +1,6 @@
 # %% 
 # 先在 pi 中执行 /login openai-codex；这里只复用授权，不启动 pi。
 devtools::load_all(".")
-# library(piagent)
 
 chat <- chat_codex(
   model = "gpt-6-luna",

@@ -4,10 +4,13 @@
 \alias{show_status}
 \title{Format the conversation usage summary}
 \usage{
-show_status(s)
+show_status(s, label = NULL)
 }
 \arguments{
 \item{s}{A \code{pi_turns} object or its \code{summary()} table.}
+
+\item{label}{Optional tag printed before the line, useful to tell apart
+the output of several chats running at the same time.}
 }
 \value{
 Prints token totals, cache hit rate, context used/limit, and cost.

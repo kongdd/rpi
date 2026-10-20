@@ -5,11 +5,10 @@
 \title{Create a pi client}
 \usage{
 pi_client(
-  bin = NULL,
+  thinking = NULL,
   dir = ".",
   model = NULL,
   provider = NULL,
-  thinking = NULL,
   tools = NULL,
   exclude_tools = NULL,
   system_prompt = NULL,
@@ -19,12 +18,12 @@ pi_client(
   env = NULL,
   args = character(),
   timeout = Inf,
-  echo = NULL
+  echo = "text"
 )
 }
 \arguments{
-\item{bin}{Path to the \code{pi} executable. Defaults to the \code{piagent.bin}
-option, then to \code{pi} on the \code{PATH}.}
+\item{thinking}{Thinking level: \code{"off"}, \code{"minimal"}, \code{"low"}, \code{"medium"},
+\code{"high"}, \code{"xhigh"}, or \code{"max"}.}
 
 \item{dir}{Working directory of the agent. \code{pi} reads project instructions,
 resolves \verb{@file} references, and groups sessions by this directory.}
@@ -33,9 +32,6 @@ resolves \verb{@file} references, and groups sessions by this directory.}
 \code{NULL} uses the model configured in \code{pi} settings.}
 
 \item{provider}{Restrict model lookup to one provider. Requires \code{model}.}
-
-\item{thinking}{Thinking level: \code{"off"}, \code{"minimal"}, \code{"low"}, \code{"medium"},
-\code{"high"}, \code{"xhigh"}, or \code{"max"}.}
 
 \item{tools}{Comma separated tool allowlist, e.g. \code{"read,grep,find,ls"}.
 Entries starting with \code{+} or \code{-} adjust the default selection instead.}
@@ -62,16 +58,15 @@ verbatim, e.g. \code{c("-a", "--no-mcp")}.}
 
 \item{timeout}{Seconds allowed for one run, or \code{Inf} for no limit.}
 
-\item{echo}{Default echo mode for \code{\link[=chat_pi]{chat_pi()}}: \code{"none"}, \code{"text"}, or
-\code{"all"}.}
+\item{echo}{Default echo mode for \code{\link[=chat_pi]{chat_pi()}}: \code{"none"}, \code{"text"},
+\code{"output"} or \code{"all"}.}
 }
 \value{
 An object of class \code{pi_client}.
 }
 \description{
-A client records how to start the \code{pi} command line tool: which binary,
-which working directory, which model, and which extra options. It plays the
-same role as a provider in \pkg{ellmer}: it is the reusable, stateless part
+A client records how to start the \code{pi} command line tool: working directory,
+model, and extra options. Like a provider in \pkg{ellmer}, it is the stateless part
 of the interface from which any number of \code{\link[=chat_pi]{chat_pi()}} conversations can be
 created.
 }

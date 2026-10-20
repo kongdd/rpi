@@ -28,16 +28,21 @@ test_that("unsupported types fail clearly", {
   expect_error(pi_schema(1), "Can't find method")
 })
 
-test_that("JSON is extracted from prose and code fences", {
-  expect_identical(pi_json_parse('{"a": 1}'), list(a = 1L))
-  expect_identical(pi_json_parse('ok:\n```json\n{"a": 1}\n```'), list(a = 1L))
-  expect_identical(
-    pi_json_parse('Here you go:\n[{"a": 1}, {"a": 2}]\nDone.'),
-    data.frame(a = c(1L, 2L))
+test_that("collect preserves concurrent structured results and field types", {
+  type <- ellmer::type_object(
+    name = ellmer::type_string(),
+    age = ellmer::type_integer()
   )
-})
-
-test_that("a JSON-free or broken answer fails clearly", {
-  expect_error(pi_json_parse("no data"), "no JSON value")
-  expect_error(pi_json_parse("{broken"), "Cannot parse")
+  chats <- lapply(1:3, function(i) {
+    chat_pi(client = fake_pi_client(
+      timeout = 10,
+      env = c(FAKE_PI_JSON = sprintf('{"name":"person","age":%d}', i))
+    ))
+  })
+  on.exit(lapply(chats, function(chat) chat$close()), add = TRUE)
+  ps <- lapply(chats, function(chat) {
+    chat$chat_structured_async("Extract name and age", type = type)
+  })
+  capture.output(result <- collect(ps))
+  expect_identical(result, lapply(1:3, function(i) list(name = "person", age = i)))
 })

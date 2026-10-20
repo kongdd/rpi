@@ -22,6 +22,9 @@
 #' @param client A [pi_client()].
 #' @param echo `"none"`, `"text"`, `"output"` or `"all"`.
 #' @param session_id A pi session ID to resume, or `NULL` for a new session.
+#' @param label Optional tag for the console output of this chat, e.g.
+#'   `"A"`. When several chats run at the same time, every line is prefixed
+#'   with `[label]` so the streams stay readable.
 #' @return A `ChatPi`, inheriting from `ellmer::Chat`.
 #' @export
 #' @examples
@@ -32,15 +35,12 @@
 #' chat$get_tokens()
 #' }
 chat_pi <- function(system_prompt = NULL, client = pi_client(), echo = NULL,
-                    session_id = NULL) {
+                    session_id = NULL, label = NULL) {
   ChatPi$new(
     client, NULL, system_prompt, session_id,
-    echo %||% client$echo %||% "text"
+    echo %||% client$echo, label
   )
 }
-# nolint end.
-
-
 
 #' @noRd
 # nolint start: object_name_linter, object_usage_linter.
@@ -48,21 +48,10 @@ ChatPi <- R6Class(
   "ChatPi",
   inherit = Chat,
   public = list(
+    label = NULL,
     initialize = function(client = pi_client(), model = NULL,
                           system_prompt = NULL, session_id = NULL,
-                          echo = "text") {
-      if (!inherits(client, "pi_client")) {
-        stop("`client` must be a pi_client()", call. = FALSE)
-      }
-      pi_flags <- "^--(no-session|session|session-id|session-dir)(=|$)"
-      if (any(grepl(pi_flags, client$args))) {
-        stop(
-          "Configure sessions with pi_client() and session_id,",
-          "not client$args.",
-          call. = FALSE
-        )
-      }
-
+                          echo = "text", label = NULL) {
       super$initialize(
         provider = Provider(name = "pi", base_url = ""),
         model = Model(name = model %||% client$model %||% ""),
@@ -73,6 +62,7 @@ ChatPi <- R6Class(
       private$context_limit <- ContextLenMax(client, private$context_model)
       private$echo_mode <- match.arg(echo, c("none", "text", "output", "all"))
       private$store <- pi_history_store(client, session_id)
+      self$label <- label
       private$sync()
     },
     chat = function(..., echo = NULL) {
@@ -187,11 +177,6 @@ ChatPi <- R6Class(
     run = function(user, type = NULL, echo = "none", content = FALSE,
                    controller = NULL, async = FALSE) {
       echo <- match.arg(echo, c("none", "text", "output", "all"))
-      has_controller <- !is.null(controller) &&
-        !inherits(controller, "ellmer_stream_controller")
-      if (has_controller) {
-        stop("`controller` must be an ellmer::stream_controller().")
-      }
       force(user)
       if (!is.null(type) && !length(user@contents)) {
         user <- ellmer::UserTurn(paste(
@@ -214,7 +199,10 @@ ChatPi <- R6Class(
         private$busy <- TRUE
         started <<- TRUE
         cl <- private$client
-        st <- pi_stream_state(controller, echo, content, cl$timeout)
+        st <- pi_stream_state(
+          controller, echo, content, cl$timeout,
+          tag = pi_tag(self$label)
+        )
         st$turns <- super$get_turns()
         if (isTRUE(controller$cancelled)) {
           st$cancelled <- TRUE
@@ -241,6 +229,7 @@ ChatPi <- R6Class(
         if (!is.null(st)) {
           if (!is.null(st$p) && st$p$is_alive()) st$p$kill_tree()
           unlink(st$files)
+          pi_console_newline(st$id)
         }
         if (started) private$busy <- FALSE
       }
@@ -264,9 +253,13 @@ ChatPi <- R6Class(
           }
         }
         pi_stream_newline(st)
-        show_status(self$get_turns())
+        pi_console_write(
+          st$id, st$tag,
+          paste0(green(pi_status_line(self$get_turns())), "\n")
+        )
       }
       pi_stream_iterator(start, cleanup, finish, async)
     }
   )
 )
+# nolint end.

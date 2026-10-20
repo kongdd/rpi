@@ -1,4 +1,5 @@
 layout_stream <- function(events, echo = "all") {
+  reset_console()
   st <- rpi:::pi_stream_state(NULL, echo, FALSE, Inf)
   index <- 0L
   st$p <- list(
@@ -27,7 +28,7 @@ test_that("thinking_end finishes the line before any answer arrives", {
     ))
     out <- capture.output(for (i in 1:2) rpi:::pi_stream_poll(st))
     expect_identical(crayon::strip_style(out), "Thinking")
-    expect_true(st$line_start)
+    expect_null(rpi:::pi_console$owner)
     expect_false(st$thinking)
   }
 })
@@ -71,6 +72,7 @@ test_that("hidden thinking and tools do not introduce newlines", {
 })
 
 test_that("finishing a chat does not add a blank line after an existing newline", {
+  reset_console()
   chat <- chat_pi(client = fake_pi_client(env = c(
     FAKE_PI_TOOLS = "1", FAKE_PI_THINKING = "1", FAKE_PI_JSON = "Answer\n"
   )))

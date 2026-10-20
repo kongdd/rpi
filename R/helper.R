@@ -15,7 +15,7 @@
 models_pi <- function(client = pi_client(), model = NULL) {
   search <- if (is.null(model)) NULL else sub(":.*$", "", model)
   res <- processx::run(
-    client$bin, c("--list-models", search),
+    "pi", c("--list-models", search),
     wd = client$dir, env = client$env, error_on_status = FALSE
   )
   if (res$status != 0L) stop("`pi --list-models` failed.\n", res$stderr, call. = FALSE)
@@ -43,17 +43,11 @@ ContextLenMax <- function(client, model) {
 
 
 arg <- function(flag, value) {
-  if (is.null(value) || length(value) == 0) {
-    return(NULL)
-  }
-  c(flag, as.character(value))
+  if (length(value)) c(flag, as.character(value))
 }
 
 # --append-system-prompt a --append-system-prompt b
 arg_multi <- function(flag, values) {
   values <- values[!is.na(values) & nzchar(values)]
-  if (length(values) == 0) {
-    return(NULL)
-  }
-  as.vector(rbind(flag, values))
+  if (length(values)) as.vector(rbind(flag, values))
 }

@@ -5,7 +5,7 @@ m <- models_pi()
 
 # %%
 # 筛选某个 provider，并把模型写进客户端
-client <- pi_client(
+pi <- pi_client(
   dir = ".", model = "MiniMax-M3", thinking = "medium",
   tools = "read,bash,edit,write,codemode",
   args = c(
@@ -15,8 +15,9 @@ client <- pi_client(
     "--no-context-files"
   )
 )
+# pi <- pi_mini(model = "MiniMax-M3", thinking = "medium")
 
-chat <- chat_pi("R语言tidyverse专家", client = client, echo = "all")
+chat <- chat_pi("R语言tidyverse专家", client = pi, echo = "all")
 
 # 实时显示工具名称、参数及模型返回的 thinking，返回完整回答
 chat$chat("你好")

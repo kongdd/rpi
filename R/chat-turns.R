@@ -169,9 +169,6 @@ pi_turn_message <- function(turn) {
 # Parsing and type conversion are shared with ellmer's own structured output;
 # `as_json()` (generic) and `convert_from_type()` (internal) cover both halves.
 pi_extract <- function(text, type, convert) {
-  if (!is.logical(convert) || length(convert) != 1L || is.na(convert)) {
-    stop("`convert` must be TRUE or FALSE.", call. = FALSE)
-  }
   parse <- function(simplify) {
     txt <- sub("\\s*```$", "", sub("^```[[:alnum:]]*\\s*", "", trimws(text)))
     fromJSON(txt, simplifyVector = simplify)

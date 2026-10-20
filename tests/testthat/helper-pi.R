@@ -12,3 +12,12 @@ skip_if_no_pi <- function() {
     skip("set `options(piagent.test = TRUE)` to run live pi tests")
   }
 }
+
+#' Reset the shared console channel
+#'
+#' The channel keeps track of which chat owns the current terminal line, so
+#' tests that write to the console must not inherit that state.
+#' @noRd
+reset_console <- function() {
+  rpi:::pi_console_reset()
+}

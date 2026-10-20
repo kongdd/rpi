@@ -1,13 +1,10 @@
 #' Create a pi client
 #'
-#' A client records how to start the `pi` command line tool: which binary,
-#' which working directory, which model, and which extra options. It plays the
-#' same role as a provider in \pkg{ellmer}: it is the reusable, stateless part
+#' A client records how to start the `pi` command line tool: working directory,
+#' model, and extra options. Like a provider in \pkg{ellmer}, it is the stateless part
 #' of the interface from which any number of [chat_pi()] conversations can be
 #' created.
 #'
-#' @param bin Path to the `pi` executable. Defaults to the `piagent.bin`
-#'   option, then to `pi` on the `PATH`.
 #' @param dir Working directory of the agent. `pi` reads project instructions,
 #'   resolves `@file` references, and groups sessions by this directory.
 #' @param model Model name or a pattern such as `"provider/model:thinking"`.
@@ -31,8 +28,8 @@
 #' @param args Character vector of extra command line arguments passed to `pi`
 #'   verbatim, e.g. `c("-a", "--no-mcp")`.
 #' @param timeout Seconds allowed for one run, or `Inf` for no limit.
-#' @param echo Default echo mode for [chat_pi()]: `"none"`, `"text"`, or
-#'   `"all"`.
+#' @param echo Default echo mode for [chat_pi()]: `"none"`, `"text"`,
+#'   `"output"` or `"all"`.
 #'
 #' @return An object of class `pi_client`.
 #' @seealso [chat_pi()]
@@ -43,19 +40,18 @@
 #' chat <- chat_pi("You are a terse R reviewer.", client = client)
 #' chat$chat("What does this repository do?")
 #' }
-pi_client <- function(bin = NULL, dir = ".", model = NULL, provider = NULL,
-                      thinking = NULL, tools = NULL, exclude_tools = NULL,
-                      system_prompt = NULL, append_system_prompt = NULL,
-                      session = TRUE, session_dir = NULL, env = NULL,
-                      args = character(), timeout = Inf, echo = NULL) {
+pi_client <- function(
+  thinking = NULL,
+  dir = ".", model = NULL, provider = NULL,
+  tools = NULL, exclude_tools = NULL,
+  system_prompt = NULL, append_system_prompt = NULL,
+  session = TRUE, session_dir = NULL, env = NULL,
+  args = character(), timeout = Inf, echo = "text"
+) {
   dir <- normalizePath(dir, mustWork = TRUE)
-  pi_check_string(model, "model")
-  pi_check_string(thinking, "thinking")
-  pi_check_string(bin, "bin")
 
   structure(
     list(
-      bin = pi_bin(bin),
       dir = dir,
       model = model,
       provider = provider,
@@ -69,9 +65,31 @@ pi_client <- function(bin = NULL, dir = ".", model = NULL, provider = NULL,
       env = env,
       args = as.character(args),
       timeout = timeout,
-      echo = pi_echo(echo)
+      echo = match.arg(echo, c("none", "text", "output", "all"))
     ),
     class = "pi_client"
+  )
+}
+
+#' Create a minimal pi client
+#'
+#' Uses only read, bash, edit, write, and codemode. Disables automatic loading of
+#' extensions, skills, and project instructions; explicitly enables codemode.
+#'
+#' @inheritParams pi_client
+#' @param ... Additional arguments passed to [pi_client()].
+#' @return An object of class `pi_client`.
+pi_mini <- function(thinking = NULL, ...) {
+  pi_client(
+    ...,
+    thinking = thinking,
+    tools = "read,bash,edit,write,codemode",
+    args = c(
+      "--no-extensions",
+      "--extension", "builtin:codemode", # 显式启用 codemode
+      "--no-skills",
+      "--no-context-files"
+    )
   )
 }
 
@@ -83,7 +101,6 @@ print.pi_client <- function(x, ...) {
     }
   }
   cat("<pi_client>\n")
-  label("bin", x$bin)
   label("dir", x$dir)
   label("model", x$model)
   label("provider", x$provider)

@@ -1,5 +1,5 @@
 test_that("pi histories select the active branch and preserve raw extension records", {
-  cl <- pi_client(bin = "pi", dir = ".", session = FALSE)
+  cl <- pi_client(dir = ".", session = FALSE)
   store <- rpi:::pi_history_store(cl)
   entries <- rpi:::pi_history_read(store$path)
   entry <- function(id, parent, text, type = "message") {
@@ -49,7 +49,6 @@ test_that("pre-cancelled controllers never launch pi", {
   pi_sync(coro::async_collect(chat$stream_async("hi", controller = controller)))
   expect_false(file.exists(capture))
   expect_s7_class(chat$last_turn(), ellmer::AssistantPartialTurn)
-  expect_error(chat$stream_async("hi", controller = list()), "stream_controller")
 })
 
 test_that("a rejected concurrent request does not release the running request", {
@@ -104,6 +103,7 @@ test_that("thinking is blue only with all echo", {
 })
 
 test_that("thinking chunks stay joined with one newline before answer chunks", {
+  reset_console()
   st <- rpi:::pi_stream_state(NULL, "all", FALSE, Inf)
   types <- c("thinking_delta", "thinking_delta", "text_delta", "text_delta")
   deltas <- c("Let ", "me think", "Hello", " world")

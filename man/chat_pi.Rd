@@ -8,7 +8,8 @@ chat_pi(
   system_prompt = NULL,
   client = pi_client(),
   echo = NULL,
-  session_id = NULL
+  session_id = NULL,
+  label = NULL
 )
 }
 \arguments{
@@ -19,6 +20,10 @@ chat_pi(
 \item{echo}{\code{"none"}, \code{"text"}, \code{"output"} or \code{"all"}.}
 
 \item{session_id}{A pi session ID to resume, or \code{NULL} for a new session.}
+
+\item{label}{Optional tag for the console output of this chat, e.g.
+\code{"A"}. When several chats run at the same time, every line is prefixed
+with \verb{[label]} so the streams stay readable.}
 }
 \value{
 A \code{ChatPi}, inheriting from \code{ellmer::Chat}.

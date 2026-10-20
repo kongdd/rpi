@@ -1,28 +1,23 @@
-pi_stream_state <- function(controller, echo, content, timeout) {
+pi_stream_state <- function(controller, echo, content, timeout, id = NULL, tag = "") {
   st <- new.env(parent = emptyenv())
   st$controller <- controller
   st$echo <- echo
   st$content <- content
   st$timeout <- timeout
+  st$id <- id %||% pi_console_id()
+  st$tag <- tag
   st$start <- Sys.time()
   st$events <- list()
   st$stderr <- character()
   st$text <- ""
   st$thinking <- FALSE
-  st$line_start <- TRUE
   st$cancelled <- FALSE
   st$files <- character()
   st$p <- NULL
   st
 }
 
-pi_stream_newline <- function(st) {
-  if (!st$line_start) {
-    cat("\n")
-    utils::flush.console()
-  }
-  st$line_start <- TRUE
-}
+pi_stream_newline <- function(st) pi_console_newline(st$id)
 
 pi_stream_stop <- function(st) {
   if (isTRUE(st$controller$cancelled)) {
@@ -59,10 +54,11 @@ pi_stream_poll <- function(st, wait = FALSE) {
       if (nzchar(ame$delta) &&
           ((text && st$echo != "none") || (thinking && st$echo == "all"))) {
         if (text && st$thinking) pi_stream_newline(st)
-        cat(if (thinking) blue(ame$delta) else ame$delta, sep = "")
+        pi_console_write(
+          st$id, st$tag, ame$delta,
+          if (thinking) blue else identity
+        )
         st$thinking <- thinking
-        st$line_start <- endsWith(ame$delta, "\n")
-        utils::flush.console()
       }
       if (!text && !st$content) next
       value <- if (!st$content) {
@@ -76,10 +72,8 @@ pi_stream_poll <- function(st, wait = FALSE) {
     } else if (identical(ev$type, "tool_execution_start") && st$echo == "all") {
       label <- green("[tool] ", ev$toolName, ": ", pi_short(ev$args), sep = "")
       pi_stream_newline(st)
-      cat(label, "\n", sep = "")
+      pi_console_write(st$id, st$tag, paste0(label, "\n"))
       st$thinking <- FALSE
-      st$line_start <- TRUE
-      utils::flush.console()
     }
   }
   st$stderr <- c(st$stderr, st$p$read_error_lines())

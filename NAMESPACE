@@ -6,6 +6,7 @@ S3method(summary,Chat)
 S3method(summary,pi_turns)
 export(chat_codex)
 export(chat_pi)
+export(collect)
 export(models_pi)
 export(pi_client)
 export(show_status)
@@ -14,7 +15,6 @@ importFrom(coro,
   async_collect,
   async_generator,
   await,
-  collect,
   exhausted,
   generator,
   loop,

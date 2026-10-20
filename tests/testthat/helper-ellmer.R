@@ -9,20 +9,20 @@ fake_pi_client <- function(..., session = FALSE) {
   dir.create(dir)
 
   if (.Platform$OS.type == "windows") {
-    bin <- file.path(dir, "fake-pi.cmd")
     writeLines(
       c("@echo off", sprintf('"%s.exe" "%s" %%*', rscript, script)),
-      bin
+      file.path(dir, "pi.cmd")
     )
   } else {
-    bin <- file.path(dir, "fake-pi")
     writeLines(
       c("#!/bin/sh", sprintf('exec "%s" "%s" "$@"', rscript, script)),
-      bin
+      file.path(dir, "pi")
     )
-    Sys.chmod(bin, "0755")
+    Sys.chmod(file.path(dir, "pi"), "0755")
   }
-  pi_client(bin = bin, dir = dir, session = session, ...)
+  client <- pi_client(dir = dir, session = session, ...)
+  client$env["PATH"] <- paste(dir, Sys.getenv("PATH"), sep = .Platform$path.sep)
+  client
 }
 
 #' Run the event loop until a promise settles
